@@ -368,7 +368,7 @@ a {
 
 /* ===== RSS Feed ===== */
 .rss-body {
-  max-height: 600px;
+  max-height: 80vh;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--card-border) transparent;
@@ -1334,4 +1334,131 @@ a {
 .alfred-app-btn.btn-stop:hover:not(:disabled) {
   background: rgba(231, 76, 60, 0.25);
   transform: scale(1.1);
+}
+
+/* Now Playing Enhanced */
+.media-playing-poster {
+  width: 60px;
+  height: 85px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.media-playing-year {
+  color: #666;
+  font-size: 13px;
+  margin-left: 6px;
+}
+.media-playing-paused {
+  color: #f39c12;
+  font-size: 12px;
+  margin-left: 8px;
+  font-weight: 600;
+}
+.media-playing-user { color: #aaa; }
+.media-playing-codec {
+  background: rgba(108,92,231,0.2);
+  color: #6c5ce7;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 4px;
+}
+.media-playing-time {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+.media-playing-pct {
+  color: #6c5ce7;
+  font-weight: 600;
+}
+.media-progress-fill.paused {
+  background: #f39c12 !important;
+}
+
+/* Now Playing Tech Details */
+.media-playing-tech {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 11px;
+}
+.media-playing-method {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.method-direct { background: rgba(46,204,113,0.15); color: #2ecc71; }
+.method-stream { background: rgba(52,152,219,0.15); color: #3498db; }
+.method-transcode { background: rgba(243,156,18,0.15); color: #f39c12; }
+.media-playing-container {
+  background: rgba(108,92,231,0.15);
+  color: #6c5ce7;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.media-playing-bitrate {
+  color: #888;
+  padding: 2px 6px;
+}
+.media-playing-client {
+  color: #666;
+  font-size: 11px;
+  margin-left: 2px;
+}
+
+/* Audio & Location styles */
+.media-playing-audio {
+  color: #aaa;
+  font-size: 11px;
+}
+.media-playing-location {
+  color: #2ecc71;
+  font-size: 11px;
+}
+
+/* ===== Phase 4B Polish ===== */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Page scrollbar */
+body::-webkit-scrollbar {
+  width: 8px;
+}
+
+body::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+body::-webkit-scrollbar-thumb {
+  background: var(--card-border);
+  border-radius: 4px;
+}
+
+body::-webkit-scrollbar-thumb:hover {
+  background: var(--card-hover-border);
+}
+
+/* Focus styles for search */
+.search-input:focus {
+  outline: none;
+}
+
+/* Mobile spacing */
+@media (max-width: 767px) {
+  .card-header {
+    padding: 12px 14px 0;
+  }
+
+  .card-body {
+    padding: 12px 14px 14px;
+  }
 }

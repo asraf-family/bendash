@@ -1,0 +1,13 @@
+services:
+  bendash:
+    build: .
+    container_name: bendash
+    restart: unless-stopped
+    ports:
+      - '7575:7575'
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production

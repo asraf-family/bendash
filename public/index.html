@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0a0f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%230a0a0f'/%3E%3Crect x='60' y='60' width='180' height='180' rx='28' fill='%236c5ce7' opacity='0.9'/%3E%3Crect x='272' y='60' width='180' height='80' rx='28' fill='%236c5ce7' opacity='0.6'/%3E%3Crect x='272' y='168' width='180' height='72' rx='28' fill='%236c5ce7' opacity='0.4'/%3E%3Crect x='60' y='272' width='120' height='180' rx='28' fill='%236c5ce7' opacity='0.5'/%3E%3Crect x='208' y='272' width='244' height='180' rx='28' fill='%236c5ce7' opacity='0.7'/%3E%3C/svg%3E">
+  <link rel="manifest" href="/manifest.json">
   <title>BenDash</title>
   <link rel="stylesheet" href="/style.css">
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -173,7 +178,7 @@
           <div class="bookmarks-grid">
             <template x-for="bm in bookmarks.data" :key="bm.id">
               <a :href="bm.url" target="_blank" rel="noopener" class="bookmark-item">
-                <img :src="bm.icon" :alt="bm.name" class="bookmark-icon" onerror="this.style.display='none'">
+                <img :src="bm.icon" :alt="bm.name" class="bookmark-icon" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%236c5ce7%22 width=%22100%22 height=%22100%22 rx=%2220%22/><text x=%2250%22 y=%2268%22 font-size=%2250%22 text-anchor=%22middle%22 fill=%22white%22>' + bm.name?.charAt(0)?.toUpperCase() + '</text></svg>'; this.onerror=null">
                 <span class="bookmark-name" x-text="bm.name"></span>
                 <button @click.prevent.stop="deleteBookmark(bm.id)" class="bookmark-delete" title="Remove">×</button>
               </a>
@@ -214,17 +219,16 @@
     </section>
 
     <!-- qBittorrent -->
-    <section class="card qbit-card" x-data="{ qbit: { loading: true, data: null } }" x-init="
-      async function fetchQbit() {
+    <section class="card qbit-card" x-data="{
+      qbit: { loading: true, data: null },
+      async fetchQbit() {
         try {
           const r = await fetch('/api/qbit/summary');
-          qbit.data = await r.json();
+          this.qbit.data = await r.json();
         } catch(e) { console.error('qbit error:', e); }
-        qbit.loading = false;
+        this.qbit.loading = false;
       }
-      fetchQbit();
-      setInterval(fetchQbit, 30000);
-    ">
+    }" x-init="fetchQbit(); setInterval(() => fetchQbit(), 30000)">
       <div class="card-header">
         <span class="card-icon">⬇️</span>
         <h2 class="card-title">Downloads</h2>
@@ -266,19 +270,18 @@
     </section>
 
     <!-- TrueNAS -->
-    <section class="card truenas-card" x-data="{ nas: { loading: true, data: null, error: null } }" x-init="
-      async function fetchNAS() {
+    <section class="card truenas-card" x-data="{
+      nas: { loading: true, data: null, error: null },
+      async fetchNAS() {
         try {
           const r = await fetch('/api/truenas/status');
           if (!r.ok) throw new Error('Failed');
-          nas.data = await r.json();
-          nas.error = null;
-        } catch(e) { nas.error = e.message; }
-        nas.loading = false;
+          this.nas.data = await r.json();
+          this.nas.error = null;
+        } catch(e) { this.nas.error = e.message; }
+        this.nas.loading = false;
       }
-      fetchNAS();
-      setInterval(fetchNAS, 60000);
-    ">
+    }" x-init="fetchNAS(); setInterval(() => fetchNAS(), 60000)">
       <div class="card-header">
         <span class="card-icon">💾</span>
         <h2 class="card-title">TrueNAS</h2>
@@ -314,7 +317,7 @@
               <div class="truenas-apps-grid">
                 <template x-for="app in nas.data.apps" :key="app.name">
                   <div class="truenas-app">
-                    <span class="dot" :class="app.state === 'running' ? 'dot-green' : 'dot-red'"></span>
+                    <span class="dot" :class="app.state?.toUpperCase() === 'RUNNING' ? 'dot-green' : 'dot-red'"></span>
                     <span class="truenas-app-name" x-text="app.name"></span>
                   </div>
                 </template>
@@ -413,17 +416,41 @@
             <div class="media-playing-list">
               <template x-for="(s, i) in playing.data" :key="i">
                 <div class="media-playing-item">
-                  <div class="media-playing-avatar" x-text="s.user?.charAt(0) || '?'"></div>
+                  <template x-if="s.posterId">
+                    <img :src="'/api/media/poster/' + s.posterId" class="media-playing-poster" onerror="this.style.display='none'">
+                  </template>
+                  <template x-if="!s.posterId">
+                    <div class="media-playing-avatar" x-text="s.user?.charAt(0) || '?'"></div>
+                  </template>
                   <div class="media-playing-info">
-                    <div class="media-playing-title" x-text="s.title"></div>
+                    <div class="media-playing-title">
+                      <span x-text="s.title"></span>
+                      <span x-show="s.year" class="media-playing-year" x-text="'(' + s.year + ')'"></span>
+                      <span x-show="s.isPaused" class="media-playing-paused">⏸ Paused</span>
+                    </div>
                     <div class="media-playing-meta">
-                      <span x-text="s.user"></span>
-                      <span class="media-playing-sep">&middot;</span>
-                      <span x-text="s.player"></span>
-                      <span class="media-playing-badge" :class="'badge-' + s.source" x-text="s.source"></span>
+                      <span class="media-playing-user">👤 <span x-text="s.user"></span></span>
+                      <span class="media-playing-sep">·</span>
+                      <span>📱 <span x-text="s.player"></span></span>
+                      <span x-show="s.client" class="media-playing-client" x-text="s.client"></span>
+                    </div>
+                    <div class="media-playing-tech">
+                      <span class="media-playing-method" :class="s.playMethod === 'DirectPlay' ? 'method-direct' : s.playMethod === 'DirectStream' ? 'method-stream' : 'method-transcode'"
+                        x-text="s.playMethod === 'DirectPlay' ? '⚡ Direct Play' : s.playMethod === 'DirectStream' ? '📡 Direct Stream' : '🔄 Transcode'"></span>
+                      <span x-show="s.videoCodec" class="media-playing-codec" x-text="'🎬 ' + (s.videoCodec?.toUpperCase() || '') + (s.resolution ? ' ' + s.resolution : '')"></span>
+                      <span x-show="s.container" class="media-playing-container" x-text="'📦 ' + (s.container || '')"></span>
+                    </div>
+                    <div class="media-playing-tech" x-show="s.audioCodec || s.bitrate">
+                      <span x-show="s.audioCodec" class="media-playing-audio" x-text="'🔊 ' + (s.audioCodec || '')"></span>
+                      <span x-show="s.bitrate" class="media-playing-bitrate" x-text="'📶 ' + s.bitrate"></span>
+                      <span x-show="s.location" class="media-playing-location" x-text="'🔒 ' + (s.location || '') + (s.ip ? ' ' + s.ip : '')"></span>
+                    </div>
+                    <div class="media-playing-time">
+                      <span x-text="s.timeDisplay || ''"></span>
+                      <span class="media-playing-pct" x-text="s.progress + '%'"></span>
                     </div>
                     <div class="media-progress-bar playing-progress">
-                      <div class="media-progress-fill" :style="'width:' + s.progress + '%'"></div>
+                      <div class="media-progress-fill" :style="'width:' + s.progress + '%'" :class="s.isPaused ? 'paused' : ''"></div>
                     </div>
                   </div>
                 </div>
