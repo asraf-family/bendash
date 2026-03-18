@@ -24,6 +24,10 @@ app.use('/api/alfred-apps', require('./routes/alfred-apps'));
 app.use('/api/qbit', require('./routes/qbit'));
 app.use('/api/truenas', require('./routes/truenas'));
 app.use('/api/widget-order', require('./routes/widget-order'));
+app.use('/api/calendar', require('./routes/calendar'));
+app.use('/api/network', require('./routes/network'));
+app.use('/api/system', require('./routes/system'));
+app.use('/api/media-stats', require('./routes/media-stats'));
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
