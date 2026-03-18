@@ -8,7 +8,8 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 min
 
 async function fetchQuote(symbol) {
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=5m`;
+    // Fetch 1-month daily data (includes current price + history)
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1mo&interval=1d`;
     const resp = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0' },
     });
@@ -23,6 +24,10 @@ async function fetchQuote(symbol) {
     const change = price - prevClose;
     const changePercent = prevClose ? ((change / prevClose) * 100) : 0;
 
+    // Extract closing prices for sparkline
+    const closes = result.indicators?.quote?.[0]?.close || [];
+    const history = closes.filter(v => v != null).map(v => parseFloat(v.toFixed(2)));
+
     return {
       symbol: meta.symbol || symbol,
       name: meta.shortName || meta.symbol || symbol,
@@ -30,6 +35,7 @@ async function fetchQuote(symbol) {
       change: parseFloat(change.toFixed(2)),
       changePercent: parseFloat(changePercent.toFixed(2)),
       currency: meta.currency || 'USD',
+      history,
     };
   } catch (err) {
     return { symbol, error: err.message };

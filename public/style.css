@@ -231,7 +231,7 @@ a {
 }
 
 .clock-time {
-  font-size: 40px;
+  font-size: 48px;
   font-weight: 700;
   letter-spacing: 2px;
   background: linear-gradient(135deg, var(--text), var(--accent));
@@ -241,7 +241,7 @@ a {
 }
 
 .clock-date {
-  font-size: 14px;
+  font-size: 16px;
   color: var(--text-secondary);
   margin-top: 4px;
 }
@@ -767,7 +767,7 @@ a {
   }
 
   .clock-time {
-    font-size: 32px;
+    font-size: 36px;
   }
 
   .bookmarks-grid {
@@ -1644,4 +1644,319 @@ body.edit-mode-active .media-card {
   body.edit-mode-active .dashboard-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ===== Header Logo ===== */
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+.header-logo-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
+.header-logo-text {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+}
+
+/* ===== Alfred App Link ===== */
+.alfred-app-link {
+  color: var(--text);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+
+.alfred-app-link:hover {
+  color: var(--accent);
+}
+
+/* ===== Mobile clock ===== */
+@media (max-width: 767px) {
+  .clock-time {
+    font-size: 36px;
+  }
+  .header-logo-text {
+    display: none;
+  }
+}
+
+/* ===== Layout Improvements v2 ===== */
+
+/* Consistent card spacing */
+.dashboard-grid {
+  gap: 16px;
+}
+
+.card-header {
+  padding: 16px 20px 0;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.card-body {
+  padding: 16px 20px 20px;
+}
+
+/* ===== Media Center — Bigger Posters ===== */
+.media-poster-card {
+  width: 140px;
+}
+
+.media-poster-img-wrap {
+  width: 140px;
+  height: 200px;
+}
+
+.media-skeleton-poster {
+  width: 140px;
+  height: 200px;
+}
+
+/* Poster hover: scale + title overlay */
+.media-poster-img-wrap {
+  cursor: pointer;
+}
+
+.media-poster-img-wrap:hover {
+  transform: scale(1.05);
+}
+
+.media-poster-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 24px 8px 8px;
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity var(--transition);
+  display: flex;
+  align-items: flex-end;
+}
+
+.media-poster-img-wrap:hover .media-poster-overlay {
+  opacity: 1;
+}
+
+.media-poster-overlay span {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Better progress bar for Continue Watching */
+.media-progress-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.media-progress-fill {
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(108, 92, 231, 0.4);
+}
+
+/* ===== Downloads — Compact Idle View ===== */
+.qbit-compact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.qbit-idle-text {
+  color: var(--text-dim);
+}
+
+.qbit-idle-sep {
+  color: var(--text-dim);
+}
+
+/* Download speed pulse animation when active */
+.qbit-speed-active {
+  animation: speedPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes speedPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; text-shadow: 0 0 8px rgba(46, 204, 113, 0.5); }
+}
+
+/* ===== Services — Clickable Cards ===== */
+.service-item {
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.service-item:hover {
+  border-color: rgba(108, 92, 231, 0.3);
+  background: rgba(108, 92, 231, 0.06);
+}
+
+/* ===== Weather SVG Icons ===== */
+.weather-icon {
+  font-size: unset;
+  display: flex;
+  align-items: center;
+}
+
+.weather-icon svg {
+  display: block;
+}
+
+.forecast-icon {
+  font-size: unset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.forecast-icon svg {
+  display: block;
+}
+
+/* ===== Responsive — Mobile (<768px) ===== */
+@media (max-width: 767px) {
+  .dashboard-grid {
+    gap: 12px;
+    padding: 12px 12px 40px;
+  }
+
+  .card-header {
+    padding: 12px 12px 0;
+  }
+
+  .card-body {
+    padding: 12px 12px 12px;
+  }
+
+  .media-poster-card {
+    width: 110px;
+  }
+
+  .media-poster-img-wrap {
+    width: 110px;
+    height: 160px;
+  }
+
+  .media-skeleton-poster {
+    width: 110px;
+    height: 160px;
+  }
+
+  .qbit-compact {
+    font-size: 12px;
+  }
+}
+
+/* ===== Hebits RSS Badges ===== */
+.rss-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rss-quality {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.quality-4k {
+  background: rgba(243, 156, 18, 0.2);
+  color: #f1c40f;
+}
+
+.quality-hd {
+  background: rgba(52, 152, 219, 0.2);
+  color: #3498db;
+}
+
+.rss-source-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+}
+
+/* Category-specific colors */
+.rss-category.cat-movies {
+  background: rgba(231, 76, 60, 0.15);
+  color: #e74c3c;
+}
+
+.rss-category.cat-tv {
+  background: rgba(155, 89, 182, 0.15);
+  color: #9b59b6;
+}
+
+.rss-category.cat-games {
+  background: rgba(46, 204, 113, 0.15);
+  color: #2ecc71;
+}
+
+.rss-category.cat-books {
+  background: rgba(52, 152, 219, 0.15);
+  color: #3498db;
+}
+
+.rss-category.cat-music {
+  background: rgba(243, 156, 18, 0.15);
+  color: #f39c12;
+}
+
+.rss-category.cat-porno {
+  background: rgba(255, 107, 129, 0.15);
+  color: #ff6b81;
+}
+
+.rss-language {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.rss-release {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.6;
+}
+
+/* ===== Stock Sparklines ===== */
+.stock-sparkline {
+  display: block;
+  margin-top: 8px;
+  width: 100%;
+  height: 40px;
+  opacity: 0.8;
 }
