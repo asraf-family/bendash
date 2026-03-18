@@ -1,0 +1,17 @@
+{
+  "name": "bendash",
+  "version": "1.0.0",
+  "description": "BenDash — Custom homepage dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "node-fetch": "^2.7.0",
+    "xml2js": "^0.6.2"
+  }
+}

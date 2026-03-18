@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BenDash</title>
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body x-data="dashboard()" x-init="init()">
+
+  <!-- Search Bar -->
+  <header class="search-header">
+    <div class="search-container">
+      <div class="search-bar">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+        </svg>
+        <form :action="searchEngine === 'google' ? 'https://www.google.com/search' : 'https://gemini.google.com/app'" method="GET" target="_blank" class="search-form" @submit="handleSearch($event)">
+          <input
+            type="text"
+            :name="searchEngine === 'google' ? 'q' : ''"
+            x-ref="searchInput"
+            placeholder="Search the web..."
+            class="search-input"
+            @keydown.slash.window.prevent="$refs.searchInput.focus()"
+            @keydown.ctrl.k.window.prevent="$refs.searchInput.focus()"
+          >
+        </form>
+        <button @click="toggleSearchEngine()" class="engine-toggle" :title="'Search with ' + searchEngine">
+          <span x-show="searchEngine === 'google'" class="engine-label">G</span>
+          <span x-show="searchEngine === 'gemini'" class="engine-label gemini">✦</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Dashboard Grid -->
+  <main class="dashboard-grid">
+
+    <!-- Weather + Clock -->
+    <section class="card weather-card">
+      <div class="card-header">
+        <span class="card-icon">🌤️</span>
+        <h2 class="card-title">Weather & Clock</h2>
+      </div>
+      <div class="card-body">
+        <div class="clock" x-data="clock()" x-init="startClock()">
+          <div class="clock-time" x-text="time"></div>
+          <div class="clock-date" x-text="date"></div>
+        </div>
+        <template x-if="weather.loading">
+          <div class="skeleton-group">
+            <div class="skeleton skeleton-lg"></div>
+            <div class="skeleton skeleton-md"></div>
+          </div>
+        </template>
+        <template x-if="!weather.loading && weather.data">
+          <div class="weather-content">
+            <div class="weather-current">
+              <span class="weather-temp" x-text="weather.data.current.temp + '°C'"></span>
+              <span class="weather-icon" x-text="getWeatherEmoji(weather.data.current.weatherCode)"></span>
+            </div>
+            <div class="weather-details">
+              <span>Feels like <span x-text="weather.data.current.feelsLike + '°C'"></span></span>
+              <span>💧 <span x-text="weather.data.current.humidity + '%'"></span></span>
+              <span>💨 <span x-text="weather.data.current.windSpeed + ' km/h'"></span></span>
+            </div>
+            <div class="forecast">
+              <template x-for="day in weather.data.daily.slice(1)" :key="day.date">
+                <div class="forecast-day">
+                  <span class="forecast-date" x-text="formatDay(day.date)"></span>
+                  <span class="forecast-icon" x-text="getWeatherEmoji(day.weatherCode)"></span>
+                  <span class="forecast-temps">
+                    <span class="temp-max" x-text="Math.round(day.maxTemp) + '°'"></span>
+                    <span class="temp-min" x-text="Math.round(day.minTemp) + '°'"></span>
+                  </span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+        <template x-if="!weather.loading && weather.error">
+          <div class="error-state">
+            <p x-text="weather.error"></p>
+            <button @click="fetchWeather()" class="retry-btn">Retry</button>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- Stocks -->
+    <section class="card stocks-card">
+      <div class="card-header">
+        <span class="card-icon">📊</span>
+        <h2 class="card-title">Stocks</h2>
+        <button @click="showStockModal = true" class="card-action-btn" title="Add stock">+</button>
+      </div>
+      <div class="card-body">
+        <template x-if="stocks.loading">
+          <div class="skeleton-group">
+            <template x-for="i in 4" :key="i"><div class="skeleton skeleton-sm"></div></template>
+          </div>
+        </template>
+        <template x-if="!stocks.loading">
+          <div class="stocks-grid">
+            <template x-for="stock in stocks.data" :key="stock.symbol">
+              <div class="stock-item">
+                <div class="stock-header">
+                  <span class="stock-symbol" x-text="stock.symbol"></span>
+                  <button @click="deleteStock(stock.symbol)" class="delete-btn" title="Remove">×</button>
+                </div>
+                <div class="stock-price" x-text="stock.error ? '—' : ('$' + stock.price?.toFixed(2))"></div>
+                <div class="stock-change" :class="stock.change >= 0 ? 'positive' : 'negative'"
+                  x-text="stock.error ? stock.error : ((stock.change >= 0 ? '+' : '') + stock.change?.toFixed(2) + ' (' + stock.changePercent?.toFixed(2) + '%)')">
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- RSS Feed -->
+    <section class="card rss-card">
+      <div class="card-header">
+        <span class="card-icon">📰</span>
+        <h2 class="card-title">Hebits Feed</h2>
+      </div>
+      <div class="card-body rss-body">
+        <template x-if="rss.loading">
+          <div class="skeleton-group">
+            <template x-for="i in 5" :key="i"><div class="skeleton skeleton-md"></div></template>
+          </div>
+        </template>
+        <template x-if="!rss.loading">
+          <div class="rss-list">
+            <template x-for="item in rss.data" :key="item.link">
+              <a :href="item.link" target="_blank" rel="noopener" class="rss-item" dir="auto">
+                <div class="rss-item-header">
+                  <span class="rss-category" x-show="item.category" x-text="item.category"></span>
+                  <span class="rss-time" x-text="timeAgo(item.pubDate)"></span>
+                </div>
+                <h3 class="rss-title" x-text="item.title"></h3>
+                <p class="rss-description" x-text="item.description?.substring(0, 120) + (item.description?.length > 120 ? '...' : '')"></p>
+              </a>
+            </template>
+          </div>
+        </template>
+        <template x-if="!rss.loading && rss.error">
+          <div class="error-state">
+            <p x-text="rss.error"></p>
+            <button @click="fetchRSS()" class="retry-btn">Retry</button>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- Bookmarks -->
+    <section class="card bookmarks-card">
+      <div class="card-header">
+        <span class="card-icon">🔖</span>
+        <h2 class="card-title">Bookmarks</h2>
+        <button @click="showBookmarkModal = true" class="card-action-btn" title="Add bookmark">+</button>
+      </div>
+      <div class="card-body">
+        <template x-if="bookmarks.loading">
+          <div class="skeleton-group skeleton-grid">
+            <template x-for="i in 6" :key="i"><div class="skeleton skeleton-square"></div></template>
+          </div>
+        </template>
+        <template x-if="!bookmarks.loading">
+          <div class="bookmarks-grid">
+            <template x-for="bm in bookmarks.data" :key="bm.id">
+              <a :href="bm.url" target="_blank" rel="noopener" class="bookmark-item">
+                <img :src="bm.icon" :alt="bm.name" class="bookmark-icon" onerror="this.style.display='none'">
+                <span class="bookmark-name" x-text="bm.name"></span>
+                <button @click.prevent.stop="deleteBookmark(bm.id)" class="bookmark-delete" title="Remove">×</button>
+              </a>
+            </template>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- Services -->
+    <section class="card services-card">
+      <div class="card-header">
+        <span class="card-icon">🖥️</span>
+        <h2 class="card-title">Services</h2>
+        <span class="services-count" x-show="!services.loading">
+          <span class="dot dot-green"></span>
+          <span x-text="services.data.filter(s => s.online).length + '/' + services.data.length"></span>
+        </span>
+      </div>
+      <div class="card-body">
+        <template x-if="services.loading">
+          <div class="skeleton-group skeleton-grid">
+            <template x-for="i in 6" :key="i"><div class="skeleton skeleton-square"></div></template>
+          </div>
+        </template>
+        <template x-if="!services.loading">
+          <div class="services-grid">
+            <template x-for="svc in services.data" :key="svc.name">
+              <a :href="svc.url" target="_blank" rel="noopener" class="service-item">
+                <span class="service-icon" x-text="svc.icon"></span>
+                <span class="service-name" x-text="svc.name"></span>
+                <span class="dot" :class="svc.online ? 'dot-green' : 'dot-red'"></span>
+              </a>
+            </template>
+          </div>
+        </template>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Add Bookmark Modal -->
+  <div class="modal-overlay" x-show="showBookmarkModal" x-transition.opacity @click.self="showBookmarkModal = false" style="display:none;">
+    <div class="modal" @click.stop>
+      <h3 class="modal-title">Add Bookmark</h3>
+      <form @submit.prevent="addBookmark()">
+        <input type="text" x-model="newBookmark.name" placeholder="Name" class="modal-input" required>
+        <input type="url" x-model="newBookmark.url" placeholder="https://..." class="modal-input" required>
+        <div class="modal-actions">
+          <button type="button" @click="showBookmarkModal = false" class="btn btn-secondary">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Stock Modal -->
+  <div class="modal-overlay" x-show="showStockModal" x-transition.opacity @click.self="showStockModal = false" style="display:none;">
+    <div class="modal" @click.stop>
+      <h3 class="modal-title">Add Stock Symbol</h3>
+      <form @submit.prevent="addStock()">
+        <input type="text" x-model="newStockSymbol" placeholder="e.g. AAPL" class="modal-input" required>
+        <div class="modal-actions">
+          <button type="button" @click="showStockModal = false" class="btn btn-secondary">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function dashboard() {
+      return {
+        searchEngine: 'google',
+        showBookmarkModal: false,
+        showStockModal: false,
+        newBookmark: { name: '', url: '' },
+        newStockSymbol: '',
+
+        weather: { loading: true, data: null, error: null },
+        bookmarks: { loading: true, data: [] },
+        rss: { loading: true, data: [], error: null },
+        services: { loading: true, data: [] },
+        stocks: { loading: true, data: [] },
+
+        init() {
+          this.fetchWeather();
+          this.fetchBookmarks();
+          this.fetchRSS();
+          this.fetchServices();
+          this.fetchStocks();
+
+          // Auto-refresh intervals
+          setInterval(() => this.fetchWeather(), 30 * 60 * 1000);    // 30 min
+          setInterval(() => this.fetchRSS(), 10 * 60 * 1000);        // 10 min
+          setInterval(() => this.fetchServices(), 30 * 1000);          // 30 sec
+          setInterval(() => this.fetchStocks(), 15 * 60 * 1000);      // 15 min
+        },
+
+        toggleSearchEngine() {
+          this.searchEngine = this.searchEngine === 'google' ? 'gemini' : 'google';
+        },
+
+        handleSearch(e) {
+          if (this.searchEngine === 'gemini') {
+            e.preventDefault();
+            const query = this.$refs.searchInput.value;
+            if (query) {
+              window.open('https://gemini.google.com/app?q=' + encodeURIComponent(query), '_blank');
+            }
+          }
+        },
+
+        async fetchWeather() {
+          try {
+            const resp = await fetch('/api/weather');
+            if (!resp.ok) throw new Error('Failed to load');
+            this.weather.data = await resp.json();
+            this.weather.error = null;
+          } catch (err) {
+            this.weather.error = err.message;
+          } finally {
+            this.weather.loading = false;
+          }
+        },
+
+        async fetchBookmarks() {
+          try {
+            const resp = await fetch('/api/bookmarks');
+            this.bookmarks.data = await resp.json();
+          } catch (err) {
+            console.error('Bookmarks error:', err);
+          } finally {
+            this.bookmarks.loading = false;
+          }
+        },
+
+        async addBookmark() {
+          try {
+            const resp = await fetch('/api/bookmarks', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.newBookmark),
+            });
+            if (resp.ok) {
+              const bm = await resp.json();
+              this.bookmarks.data.push(bm);
+              this.newBookmark = { name: '', url: '' };
+              this.showBookmarkModal = false;
+            }
+          } catch (err) {
+            console.error('Add bookmark error:', err);
+          }
+        },
+
+        async deleteBookmark(id) {
+          try {
+            await fetch('/api/bookmarks/' + id, { method: 'DELETE' });
+            this.bookmarks.data = this.bookmarks.data.filter(b => b.id !== id);
+          } catch (err) {
+            console.error('Delete bookmark error:', err);
+          }
+        },
+
+        async fetchRSS() {
+          try {
+            const resp = await fetch('/api/rss');
+            if (!resp.ok) throw new Error('Failed to load');
+            this.rss.data = await resp.json();
+            this.rss.error = null;
+          } catch (err) {
+            this.rss.error = err.message;
+          } finally {
+            this.rss.loading = false;
+          }
+        },
+
+        async fetchServices() {
+          try {
+            const resp = await fetch('/api/services');
+            this.services.data = await resp.json();
+          } catch (err) {
+            console.error('Services error:', err);
+          } finally {
+            this.services.loading = false;
+          }
+        },
+
+        async fetchStocks() {
+          try {
+            const resp = await fetch('/api/stocks');
+            if (!resp.ok) throw new Error('Failed to load');
+            this.stocks.data = await resp.json();
+          } catch (err) {
+            console.error('Stocks error:', err);
+          } finally {
+            this.stocks.loading = false;
+          }
+        },
+
+        async addStock() {
+          try {
+            const resp = await fetch('/api/stocks', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ symbol: this.newStockSymbol }),
+            });
+            if (resp.ok) {
+              this.newStockSymbol = '';
+              this.showStockModal = false;
+              this.stocks.loading = true;
+              this.fetchStocks();
+            }
+          } catch (err) {
+            console.error('Add stock error:', err);
+          }
+        },
+
+        async deleteStock(symbol) {
+          try {
+            await fetch('/api/stocks/' + encodeURIComponent(symbol), { method: 'DELETE' });
+            this.stocks.data = this.stocks.data.filter(s => s.symbol !== symbol);
+          } catch (err) {
+            console.error('Delete stock error:', err);
+          }
+        },
+
+        getWeatherEmoji(code) {
+          if (code === 0) return '☀️';
+          if (code <= 3) return '⛅';
+          if (code <= 48) return '🌫️';
+          if (code <= 57) return '🌧️';
+          if (code <= 67) return '🌧️';
+          if (code <= 77) return '🌨️';
+          if (code <= 82) return '🌧️';
+          if (code <= 86) return '🌨️';
+          if (code >= 95) return '⛈️';
+          return '🌤️';
+        },
+
+        formatDay(dateStr) {
+          const d = new Date(dateStr + 'T00:00:00');
+          return d.toLocaleDateString('en', { weekday: 'short' });
+        },
+
+        timeAgo(dateStr) {
+          if (!dateStr) return '';
+          const now = new Date();
+          const then = new Date(dateStr);
+          const diff = Math.floor((now - then) / 1000);
+          if (diff < 60) return 'just now';
+          if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+          if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+          return Math.floor(diff / 86400) + 'd ago';
+        },
+      };
+    }
+
+    function clock() {
+      return {
+        time: '',
+        date: '',
+        startClock() {
+          const update = () => {
+            const now = new Date();
+            this.time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Jerusalem' });
+            this.date = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jerusalem' });
+          };
+          update();
+          setInterval(update, 1000);
+        },
+      };
+    }
+  </script>
+</body>
+</html>
