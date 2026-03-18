@@ -1462,3 +1462,186 @@ body::-webkit-scrollbar-thumb:hover {
     padding: 12px 14px 14px;
   }
 }
+
+/* ===== Edit Mode ===== */
+
+/* Edit Mode Banner */
+.edit-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #f39c12, #e67e22);
+  color: #1a1a2e;
+  font-weight: 700;
+  font-size: 14px;
+  box-shadow: 0 4px 20px rgba(243, 156, 18, 0.3);
+}
+
+.edit-banner-text {
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.edit-banner-done {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  color: #1a1a2e;
+  padding: 6px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all var(--transition);
+}
+
+.edit-banner-done:hover {
+  background: rgba(0, 0, 0, 0.35);
+  transform: scale(1.05);
+}
+
+/* Shift content down when edit banner is visible */
+body.edit-mode-active .search-header {
+  margin-top: 44px;
+}
+
+/* Edit toggle button */
+.edit-toggle-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-border);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition);
+  flex-shrink: 0;
+  font-size: 16px;
+  margin-left: 12px;
+}
+
+.edit-toggle-btn:hover {
+  background: rgba(243, 156, 18, 0.15);
+  border-color: rgba(243, 156, 18, 0.4);
+  transform: scale(1.08);
+}
+
+/* Search container flex to include edit button */
+.search-container {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.search-container .search-bar {
+  flex: 1;
+}
+
+/* Drag Handle */
+.drag-handle {
+  font-size: 18px;
+  color: var(--text-dim);
+  cursor: grab;
+  user-select: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all var(--transition);
+  line-height: 1;
+}
+
+.drag-handle:hover {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Edit mode card styles */
+body.edit-mode-active .card {
+  border-style: dashed;
+  border-color: rgba(243, 156, 18, 0.3);
+}
+
+body.edit-mode-active .card:hover {
+  border-color: rgba(243, 156, 18, 0.5);
+}
+
+/* Sortable ghost/chosen/drag states */
+.sortable-ghost {
+  opacity: 0.3;
+  border: 2px dashed var(--accent) !important;
+}
+
+.sortable-chosen {
+  box-shadow: 0 8px 32px rgba(108, 92, 231, 0.3) !important;
+}
+
+.sortable-drag {
+  opacity: 0.9;
+  transform: rotate(2deg);
+}
+
+/* Dashboard grid in edit mode — disable fixed placement so drag works */
+body.edit-mode-active .dashboard-grid {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+body.edit-mode-active .dashboard-grid .card {
+  grid-column: auto !important;
+  grid-row: auto !important;
+}
+
+body.edit-mode-active .media-card {
+  grid-column: auto !important;
+}
+
+/* Service delete button */
+.service-delete {
+  background: rgba(231, 76, 60, 0.2);
+  border: none;
+  color: var(--red);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+
+.service-delete:hover {
+  background: rgba(231, 76, 60, 0.4);
+  transform: scale(1.15);
+}
+
+/* Responsive edit mode */
+@media (max-width: 1279px) {
+  body.edit-mode-active .dashboard-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  body.edit-mode-active .media-card {
+    grid-column: auto !important;
+  }
+}
+
+@media (max-width: 767px) {
+  body.edit-mode-active .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}

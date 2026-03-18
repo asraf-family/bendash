@@ -29,6 +29,20 @@ db.exec(`
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS services (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    icon TEXT DEFAULT '🔗',
+    sort_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS widget_order (
+    widget_id TEXT PRIMARY KEY,
+    sort_order INTEGER DEFAULT 0
+  );
 `);
 
 // Seed default bookmarks if table is empty
@@ -52,7 +66,7 @@ if (count.c === 0) {
   const insert = db.prepare('INSERT INTO bookmarks (name, url, icon, sort_order) VALUES (?, ?, ?, ?)');
   const insertMany = db.transaction((items) => {
     items.forEach((item, i) => {
-      const iconUrl = `https://www.google.com/s2/favicons?domain=${new URL(item.url).hostname}&sz=64`;
+      const iconUrl = `/api/bookmarks/favicon?url=${encodeURIComponent(item.url)}`;
       insert.run(item.name, item.url, iconUrl, i);
     });
   });
@@ -72,6 +86,34 @@ if (stockCount.c === 0) {
   });
   insertStocks(defaultStocks);
   console.log('Seeded default stocks');
+}
+
+// Seed default services if table is empty
+const serviceCount = db.prepare('SELECT COUNT(*) as c FROM services').get();
+if (serviceCount.c === 0) {
+  const defaultServices = [
+    { name: 'Plex', url: 'http://192.168.0.13:32400', icon: '🎬' },
+    { name: 'Jellyfin', url: 'http://192.168.0.13:30013', icon: '🎥' },
+    { name: 'Vaultwarden', url: 'https://bitwarden.bini541.com', icon: '🔐' },
+    { name: 'qBittorrent', url: 'http://192.168.0.13:30024', icon: '⬇️' },
+    { name: 'TrueNAS', url: 'http://192.168.0.13', icon: '💾' },
+    { name: 'Home Assistant', url: 'http://192.168.0.130:8123', icon: '🏠' },
+    { name: 'AdGuard', url: 'http://192.168.0.68', icon: '🛡️' },
+    { name: 'Proxmox', url: 'https://192.168.0.66:8006', icon: '🖥️' },
+    { name: 'Kavita', url: 'http://192.168.0.13:30069', icon: '📚' },
+    { name: 'UniFi', url: 'https://192.168.0.1', icon: '📡' },
+    { name: 'ASUSTOR', url: 'http://192.168.0.191:8009', icon: '🗄️' },
+    { name: 'Portainer', url: 'https://192.168.0.67:9443', icon: '🐳' },
+  ];
+
+  const insertService = db.prepare('INSERT INTO services (name, url, icon, sort_order) VALUES (?, ?, ?, ?)');
+  const insertServices = db.transaction((items) => {
+    items.forEach((item, i) => {
+      insertService.run(item.name, item.url, item.icon, i);
+    });
+  });
+  insertServices(defaultServices);
+  console.log('Seeded default services');
 }
 
 module.exports = db;
