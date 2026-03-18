@@ -63,7 +63,7 @@ router.get('/random', async (req, res) => {
       return res.json(null);
     }
 
-    const url = `${JF_URL}/Users/${JF_USER}/Items?IncludeItemTypes=Movie&IsPlayed=false&SortBy=Random&Limit=1&Fields=Overview,PrimaryImageTag,CommunityRating,ProductionYear&api_key=${JF_KEY}`;
+    const url = `${JF_URL}/Users/${JF_USER}/Items?IncludeItemTypes=Movie&IsPlayed=false&Recursive=true&SortBy=Random&Limit=1&Fields=Overview,PrimaryImageTag,CommunityRating,ProductionYear&api_key=${JF_KEY}`;
     const resp = await fetch(url, { headers: jfHeaders() });
     const data = await resp.json();
     const item = (data.Items || [])[0];

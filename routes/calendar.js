@@ -13,7 +13,7 @@ router.get('/', async (req, res) => {
 
     let events = [];
     try {
-      const raw = execSync('gog cal list --days 2 --json', {
+      const raw = execSync('gog calendar list --days 2 --json', {
         timeout: 10000,
         encoding: 'utf-8',
       });
