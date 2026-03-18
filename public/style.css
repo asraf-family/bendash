@@ -1960,3 +1960,342 @@ body.edit-mode-active .media-card {
   height: 40px;
   opacity: 0.8;
 }
+
+/* ===== BenDash v1.2 — New Widgets ===== */
+
+/* Greeting */
+.greeting-line {
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 4px;
+  background: linear-gradient(135deg, var(--text), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.greeting-summary {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+/* System Health Bar */
+.system-health-bar {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.health-badges {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 6px 0;
+}
+
+.health-badge {
+  color: var(--text-secondary);
+}
+
+.health-sep {
+  color: var(--text-dim);
+  opacity: 0.5;
+}
+
+/* Calendar Widget */
+.calendar-card {
+  animation-delay: 0.4s;
+}
+
+.calendar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cal-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.cal-event {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.cal-event:last-child {
+  border-bottom: none;
+}
+
+.cal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cal-time {
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-width: 50px;
+  font-family: monospace;
+}
+
+.cal-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+/* What to Watch Widget */
+.whats-next-card {
+  animation-delay: 0.45s;
+}
+
+.wtw-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wtw-poster-wrap {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  height: 250px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.wtw-poster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.wtw-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 40%, transparent 70%);
+  display: flex;
+  align-items: flex-end;
+  padding: 20px;
+}
+
+.wtw-info {
+  width: 100%;
+}
+
+.wtw-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.wtw-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8px;
+}
+
+.wtw-overview {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wtw-suggest-btn {
+  width: 100%;
+  padding: 10px;
+  background: rgba(108, 92, 231, 0.15);
+  border: 1px solid rgba(108, 92, 231, 0.3);
+  color: var(--accent);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all var(--transition);
+}
+
+.wtw-suggest-btn:hover {
+  background: rgba(108, 92, 231, 0.25);
+  transform: translateY(-1px);
+}
+
+/* Media Stats Row */
+.media-stats-row {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 1279px) {
+  .media-stats-row {
+    display: none;
+  }
+}
+
+/* Responsive — new widgets */
+@media (max-width: 767px) {
+  .greeting-line {
+    font-size: 18px;
+  }
+
+  .health-badges {
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .system-health-bar {
+    padding: 0 12px;
+  }
+
+  .wtw-poster-wrap {
+    height: 200px;
+  }
+}
+
+/* ===== Widget Resize ===== */
+
+/* Resize button in card header */
+.resize-btn {
+  background: rgba(243, 156, 18, 0.15);
+  border: 1px solid rgba(243, 156, 18, 0.3);
+  color: #f39c12;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  line-height: 1;
+}
+
+.resize-btn:hover {
+  background: rgba(243, 156, 18, 0.3);
+  transform: scale(1.1);
+}
+
+/* Resize dropdown */
+.resize-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 6px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  z-index: 50;
+  min-width: 180px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.resize-section {
+  margin-bottom: 10px;
+}
+
+.resize-section:last-child {
+  margin-bottom: 0;
+}
+
+.resize-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.resize-options {
+  display: flex;
+  gap: 4px;
+}
+
+.resize-opt {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.resize-opt:hover {
+  background: rgba(108, 92, 231, 0.15);
+  border-color: rgba(108, 92, 231, 0.3);
+  color: var(--text);
+}
+
+.resize-opt.active {
+  background: rgba(108, 92, 231, 0.25);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Widget size — width via data attributes */
+.card[data-width="2"] { grid-column: span 2; }
+.card[data-width="3"] { grid-column: span 3; }
+
+/* Widget size — height via data attributes */
+.card[data-height="sm"] { max-height: 200px; overflow: hidden; }
+.card[data-height="md"] { max-height: 400px; overflow: auto; }
+.card[data-height="lg"] { max-height: 600px; overflow: auto; }
+
+/* In edit mode, allow span overrides */
+body.edit-mode-active .card[data-width="2"] { grid-column: span 2 !important; }
+body.edit-mode-active .card[data-width="3"] { grid-column: span 3 !important; }
+
+/* Responsive: on mobile all cards are 1 col regardless of setting */
+@media (max-width: 767px) {
+  .card[data-width="2"],
+  .card[data-width="3"] {
+    grid-column: 1 !important;
+  }
+}

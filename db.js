@@ -43,6 +43,12 @@ db.exec(`
     widget_id TEXT PRIMARY KEY,
     sort_order INTEGER DEFAULT 0
   );
+
+  CREATE TABLE IF NOT EXISTS widget_sizes (
+    widget_id TEXT PRIMARY KEY,
+    width INTEGER DEFAULT 1,
+    height TEXT DEFAULT 'auto'
+  );
 `);
 
 // Seed default bookmarks if table is empty

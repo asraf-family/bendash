@@ -13,7 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
-<body x-data="dashboard()" x-init="init()" :class="editMode && 'edit-mode-active'">
+<body x-data="dashboard()" x-init="init(); applyBackground(); setInterval(() => applyBackground(), 3600000)" :class="editMode && 'edit-mode-active'" :style="bgGradient">
 
   <!-- Edit Mode Banner -->
   <div class="edit-banner" x-show="editMode" x-transition style="display:none;">
@@ -54,6 +54,44 @@
     </div>
   </header>
 
+  <!-- System Health Bar -->
+  <div class="system-health-bar" x-data="{
+    health: null, network: null,
+    async fetchHealth() {
+      try {
+        const [h, n] = await Promise.all([
+          fetch('/api/system/health').then(r => r.ok ? r.json() : null),
+          fetch('/api/network/status').then(r => r.ok ? r.json() : null)
+        ]);
+        this.health = h;
+        this.network = n;
+      } catch(e) { console.error('Health bar error:', e); }
+    },
+    cpuColor(v) { return v > 80 ? 'var(--red)' : v > 60 ? 'var(--yellow)' : 'var(--green)'; },
+    ramColor(used, total) { return (used/total) > 0.8 ? 'var(--red)' : (used/total) > 0.6 ? 'var(--yellow)' : 'var(--green)'; },
+    diskColor(v) { return v > 85 ? 'var(--red)' : v > 70 ? 'var(--yellow)' : 'var(--green)'; }
+  }" x-init="fetchHealth(); setInterval(() => fetchHealth(), 30000)">
+    <template x-if="health">
+      <div class="health-badges">
+        <span class="health-badge">CPU <span :style="'color:' + cpuColor(health.cpu)" x-text="health.cpu + '%'"></span></span>
+        <span class="health-sep">&middot;</span>
+        <span class="health-badge">RAM <span :style="'color:' + ramColor(health.memUsed, health.memTotal)" x-text="health.memUsed + '/' + health.memTotal + ' GB'"></span></span>
+        <span class="health-sep">&middot;</span>
+        <span class="health-badge">Disk <span :style="'color:' + diskColor(health.diskPercent)" x-text="health.diskPercent + '%'"></span></span>
+        <template x-if="network">
+          <span>
+            <span class="health-sep">&middot;</span>
+            <span class="health-badge">WAN <span :style="'color: var(--green)'" x-show="network.internetOnline">✅</span><span style="color: var(--red)" x-show="!network.internetOnline">❌</span></span>
+            <span class="health-sep">&middot;</span>
+            <span class="health-badge"><span x-text="network.deviceCount"></span> devices</span>
+          </span>
+        </template>
+        <span class="health-sep">&middot;</span>
+        <span class="health-badge">Uptime <span x-text="health.uptimeDays + 'd'"></span></span>
+      </div>
+    </template>
+  </div>
+
   <!-- Dashboard Grid -->
   <main class="dashboard-grid">
 
@@ -61,11 +99,33 @@
     <section class="card weather-card" data-widget-id="weather">
       <div class="card-header">
         <span class="drag-handle" x-show="editMode">⠿</span>
+        <div class="resize-wrapper" x-show="editMode" style="position:relative;display:inline-block;">
+          <button class="resize-btn" @click.stop="toggleResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
+          <div class="resize-dropdown" x-show="resizeOpen === $el.closest('[data-widget-id]').dataset.widgetId" @click.outside="resizeOpen = null" x-transition style="display:none;">
+            <div class="resize-section"><span class="resize-label">Width</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 1 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 1, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">1 col</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 2 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 2, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">2 cols</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 3 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 3, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">Full</button>
+              </div>
+            </div>
+            <div class="resize-section"><span class="resize-label">Height</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'auto' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'auto')">Auto</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'sm' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'sm')">Small</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'md' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'md')">Medium</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'lg' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'lg')">Large</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <span class="card-icon">🌤️</span>
         <h2 class="card-title">Weather & Clock</h2>
       </div>
       <div class="card-body">
         <div class="clock" x-data="clock()" x-init="startClock()">
+          <div class="greeting-line" x-text="greeting" dir="rtl"></div>
+          <div class="greeting-summary" x-text="summary"></div>
           <div class="clock-time" x-text="time"></div>
           <div class="clock-date" x-text="date"></div>
         </div>
@@ -113,6 +173,26 @@
     <section class="card stocks-card" data-widget-id="stocks">
       <div class="card-header">
         <span class="drag-handle" x-show="editMode">⠿</span>
+        <div class="resize-wrapper" x-show="editMode" style="position:relative;display:inline-block;">
+          <button class="resize-btn" @click.stop="toggleResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
+          <div class="resize-dropdown" x-show="resizeOpen === $el.closest('[data-widget-id]').dataset.widgetId" @click.outside="resizeOpen = null" x-transition style="display:none;">
+            <div class="resize-section"><span class="resize-label">Width</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 1 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 1, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">1 col</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 2 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 2, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">2 cols</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 3 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 3, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">Full</button>
+              </div>
+            </div>
+            <div class="resize-section"><span class="resize-label">Height</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'auto' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'auto')">Auto</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'sm' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'sm')">Small</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'md' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'md')">Medium</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'lg' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'lg')">Large</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <span class="card-icon">📊</span>
         <h2 class="card-title">Stocks</h2>
         <button @click="showStockModal = true" class="card-action-btn" title="Add stock" x-show="editMode">+</button>
@@ -158,6 +238,26 @@
     <section class="card rss-card" data-widget-id="rss">
       <div class="card-header">
         <span class="drag-handle" x-show="editMode">⠿</span>
+        <div class="resize-wrapper" x-show="editMode" style="position:relative;display:inline-block;">
+          <button class="resize-btn" @click.stop="toggleResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
+          <div class="resize-dropdown" x-show="resizeOpen === $el.closest('[data-widget-id]').dataset.widgetId" @click.outside="resizeOpen = null" x-transition style="display:none;">
+            <div class="resize-section"><span class="resize-label">Width</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 1 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 1, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">1 col</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 2 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 2, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">2 cols</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 3 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 3, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">Full</button>
+              </div>
+            </div>
+            <div class="resize-section"><span class="resize-label">Height</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'auto' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'auto')">Auto</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'sm' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'sm')">Small</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'md' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'md')">Medium</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'lg' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'lg')">Large</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <span class="card-icon">📰</span>
         <h2 class="card-title">Hebits Feed</h2>
       </div>
@@ -200,6 +300,26 @@
     <section class="card bookmarks-card" data-widget-id="bookmarks">
       <div class="card-header">
         <span class="drag-handle" x-show="editMode">⠿</span>
+        <div class="resize-wrapper" x-show="editMode" style="position:relative;display:inline-block;">
+          <button class="resize-btn" @click.stop="toggleResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
+          <div class="resize-dropdown" x-show="resizeOpen === $el.closest('[data-widget-id]').dataset.widgetId" @click.outside="resizeOpen = null" x-transition style="display:none;">
+            <div class="resize-section"><span class="resize-label">Width</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 1 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 1, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">1 col</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 2 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 2, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">2 cols</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 3 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 3, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">Full</button>
+              </div>
+            </div>
+            <div class="resize-section"><span class="resize-label">Height</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'auto' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'auto')">Auto</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'sm' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'sm')">Small</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'md' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'md')">Medium</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'lg' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'lg')">Large</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <span class="card-icon">🔖</span>
         <h2 class="card-title">Bookmarks</h2>
         <button @click="showBookmarkModal = true" class="card-action-btn" title="Add bookmark" x-show="editMode">+</button>
@@ -228,6 +348,26 @@
     <section class="card services-card" data-widget-id="services">
       <div class="card-header">
         <span class="drag-handle" x-show="editMode">⠿</span>
+        <div class="resize-wrapper" x-show="editMode" style="position:relative;display:inline-block;">
+          <button class="resize-btn" @click.stop="toggleResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
+          <div class="resize-dropdown" x-show="resizeOpen === $el.closest('[data-widget-id]').dataset.widgetId" @click.outside="resizeOpen = null" x-transition style="display:none;">
+            <div class="resize-section"><span class="resize-label">Width</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 1 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 1, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">1 col</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 2 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 2, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">2 cols</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 3 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 3, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">Full</button>
+              </div>
+            </div>
+            <div class="resize-section"><span class="resize-label">Height</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'auto' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'auto')">Auto</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'sm' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'sm')">Small</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'md' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'md')">Medium</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'lg' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'lg')">Large</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <span class="card-icon">🖥️</span>
         <h2 class="card-title">Services</h2>
         <button @click="showServiceModal = true" class="card-action-btn" title="Add service" x-show="editMode">+</button>
@@ -274,6 +414,26 @@
     }" x-init="fetchQbit(); setInterval(() => fetchQbit(), 30000)">
       <div class="card-header">
         <span class="drag-handle" x-show="editMode">⠿</span>
+        <div class="resize-wrapper" x-show="editMode" style="position:relative;display:inline-block;">
+          <button class="resize-btn" @click.stop="toggleResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
+          <div class="resize-dropdown" x-show="resizeOpen === $el.closest('[data-widget-id]').dataset.widgetId" @click.outside="resizeOpen = null" x-transition style="display:none;">
+            <div class="resize-section"><span class="resize-label">Width</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 1 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 1, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">1 col</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 2 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 2, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">2 cols</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 3 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 3, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">Full</button>
+              </div>
+            </div>
+            <div class="resize-section"><span class="resize-label">Height</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'auto' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'auto')">Auto</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'sm' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'sm')">Small</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'md' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'md')">Medium</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'lg' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'lg')">Large</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <span class="card-icon">⬇️</span>
         <h2 class="card-title">Downloads</h2>
       </div>
@@ -340,6 +500,26 @@
     }" x-init="fetchNAS(); setInterval(() => fetchNAS(), 60000)">
       <div class="card-header">
         <span class="drag-handle" x-show="editMode">⠿</span>
+        <div class="resize-wrapper" x-show="editMode" style="position:relative;display:inline-block;">
+          <button class="resize-btn" @click.stop="toggleResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
+          <div class="resize-dropdown" x-show="resizeOpen === $el.closest('[data-widget-id]').dataset.widgetId" @click.outside="resizeOpen = null" x-transition style="display:none;">
+            <div class="resize-section"><span class="resize-label">Width</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 1 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 1, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">1 col</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 2 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 2, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">2 cols</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 3 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 3, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">Full</button>
+              </div>
+            </div>
+            <div class="resize-section"><span class="resize-label">Height</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'auto' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'auto')">Auto</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'sm' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'sm')">Small</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'md' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'md')">Medium</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'lg' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'lg')">Large</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <span class="card-icon">💾</span>
         <h2 class="card-title">TrueNAS</h2>
       </div>
@@ -392,8 +572,29 @@
     <section class="card media-card" data-widget-id="media" x-data="mediaCenter()" x-init="init()">
       <div class="card-header">
         <span class="drag-handle" x-show="editMode">⠿</span>
+        <div class="resize-wrapper" x-show="editMode" style="position:relative;display:inline-block;">
+          <button class="resize-btn" @click.stop="toggleResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
+          <div class="resize-dropdown" x-show="resizeOpen === $el.closest('[data-widget-id]').dataset.widgetId" @click.outside="resizeOpen = null" x-transition style="display:none;">
+            <div class="resize-section"><span class="resize-label">Width</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 1 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 1, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">1 col</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 2 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 2, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">2 cols</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 3 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 3, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">Full</button>
+              </div>
+            </div>
+            <div class="resize-section"><span class="resize-label">Height</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'auto' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'auto')">Auto</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'sm' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'sm')">Small</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'md' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'md')">Medium</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'lg' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'lg')">Large</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <span class="card-icon">🎬</span>
         <h2 class="card-title">Media Center</h2>
+        <span class="media-stats-row" x-show="mediaStats" x-text="mediaStats"></span>
         <div class="media-tabs">
           <button class="media-tab" :class="tab === 'continue' && 'active'" @click="tab = 'continue'">Continue</button>
           <button class="media-tab" :class="tab === 'recent' && 'active'" @click="tab = 'recent'">Recent</button>
@@ -530,6 +731,26 @@
     <section class="card alfred-apps-card" data-widget-id="alfred-apps" x-data="alfredApps()" x-init="init()">
       <div class="card-header">
         <span class="drag-handle" x-show="editMode">⠿</span>
+        <div class="resize-wrapper" x-show="editMode" style="position:relative;display:inline-block;">
+          <button class="resize-btn" @click.stop="toggleResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
+          <div class="resize-dropdown" x-show="resizeOpen === $el.closest('[data-widget-id]').dataset.widgetId" @click.outside="resizeOpen = null" x-transition style="display:none;">
+            <div class="resize-section"><span class="resize-label">Width</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 1 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 1, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">1 col</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 2 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 2, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">2 cols</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 3 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 3, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">Full</button>
+              </div>
+            </div>
+            <div class="resize-section"><span class="resize-label">Height</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'auto' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'auto')">Auto</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'sm' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'sm')">Small</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'md' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'md')">Medium</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'lg' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'lg')">Large</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <span class="card-icon">🤖</span>
         <h2 class="card-title">Alfred Apps</h2>
         <span class="services-count" x-show="!loading">
@@ -573,6 +794,165 @@
               </div>
             </template>
           </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- Calendar -->
+    <section class="card calendar-card" data-widget-id="calendar" x-data="{
+      events: [], loading: true,
+      async fetchCalendar() {
+        try {
+          const r = await fetch('/api/calendar');
+          if (r.ok) this.events = await r.json();
+        } catch(e) { console.error('Calendar error:', e); }
+        this.loading = false;
+      },
+      todayEvents() {
+        const today = new Date().toISOString().slice(0, 10);
+        return this.events.filter(e => e.start && e.start.slice(0, 10) === today);
+      },
+      tomorrowEvents() {
+        const d = new Date(); d.setDate(d.getDate() + 1);
+        const tmr = d.toISOString().slice(0, 10);
+        return this.events.filter(e => e.start && e.start.slice(0, 10) === tmr);
+      },
+      fmtTime(s) {
+        if (!s) return '';
+        const d = new Date(s);
+        return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
+      }
+    }" x-init="fetchCalendar(); setInterval(() => fetchCalendar(), 300000)">
+      <div class="card-header">
+        <span class="drag-handle" x-show="editMode">⠿</span>
+        <div class="resize-wrapper" x-show="editMode" style="position:relative;display:inline-block;">
+          <button class="resize-btn" @click.stop="toggleResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
+          <div class="resize-dropdown" x-show="resizeOpen === $el.closest('[data-widget-id]').dataset.widgetId" @click.outside="resizeOpen = null" x-transition style="display:none;">
+            <div class="resize-section"><span class="resize-label">Width</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 1 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 1, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">1 col</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 2 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 2, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">2 cols</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 3 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 3, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">Full</button>
+              </div>
+            </div>
+            <div class="resize-section"><span class="resize-label">Height</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'auto' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'auto')">Auto</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'sm' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'sm')">Small</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'md' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'md')">Medium</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'lg' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'lg')">Large</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <span class="card-icon">📅</span>
+        <h2 class="card-title">Calendar</h2>
+      </div>
+      <div class="card-body">
+        <template x-if="loading">
+          <div class="skeleton-group">
+            <div class="skeleton skeleton-sm"></div>
+            <div class="skeleton skeleton-sm"></div>
+            <div class="skeleton skeleton-sm"></div>
+          </div>
+        </template>
+        <template x-if="!loading">
+          <div class="calendar-content">
+            <div class="cal-section" x-show="todayEvents().length > 0">
+              <div class="cal-section-title">Today</div>
+              <template x-for="ev in todayEvents()" :key="ev.title + ev.start">
+                <div class="cal-event">
+                  <span class="cal-dot" :style="'background:' + (ev.color || 'var(--accent)')"></span>
+                  <span class="cal-time" x-text="ev.allDay ? 'All day' : fmtTime(ev.start)"></span>
+                  <span class="cal-title" x-text="ev.title"></span>
+                </div>
+              </template>
+            </div>
+            <div class="cal-section" x-show="tomorrowEvents().length > 0">
+              <div class="cal-section-title">Tomorrow</div>
+              <template x-for="ev in tomorrowEvents()" :key="ev.title + ev.start">
+                <div class="cal-event">
+                  <span class="cal-dot" :style="'background:' + (ev.color || 'var(--accent)')"></span>
+                  <span class="cal-time" x-text="ev.allDay ? 'All day' : fmtTime(ev.start)"></span>
+                  <span class="cal-title" x-text="ev.title"></span>
+                </div>
+              </template>
+            </div>
+            <div class="cal-empty" x-show="todayEvents().length === 0 && tomorrowEvents().length === 0">
+              No upcoming events
+            </div>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- What to Watch -->
+    <section class="card whats-next-card" data-widget-id="whats-next" x-data="{
+      movie: null, loading: true,
+      async fetchRandom() {
+        this.loading = true;
+        try {
+          const r = await fetch('/api/media-stats/random');
+          if (r.ok) this.movie = await r.json();
+        } catch(e) { console.error('Random movie error:', e); }
+        this.loading = false;
+      }
+    }" x-init="fetchRandom()">
+      <div class="card-header">
+        <span class="drag-handle" x-show="editMode">⠿</span>
+        <div class="resize-wrapper" x-show="editMode" style="position:relative;display:inline-block;">
+          <button class="resize-btn" @click.stop="toggleResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
+          <div class="resize-dropdown" x-show="resizeOpen === $el.closest('[data-widget-id]').dataset.widgetId" @click.outside="resizeOpen = null" x-transition style="display:none;">
+            <div class="resize-section"><span class="resize-label">Width</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 1 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 1, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">1 col</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 2 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 2, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">2 cols</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width === 3 && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, 3, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height)">Full</button>
+              </div>
+            </div>
+            <div class="resize-section"><span class="resize-label">Height</span>
+              <div class="resize-options">
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'auto' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'auto')">Auto</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'sm' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'sm')">Small</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'md' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'md')">Medium</button>
+                <button class="resize-opt" :class="getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).height === 'lg' && 'active'" @click="setWidgetSize($el.closest('[data-widget-id]').dataset.widgetId, getWidgetSize($el.closest('[data-widget-id]').dataset.widgetId).width, 'lg')">Large</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <span class="card-icon">🎲</span>
+        <h2 class="card-title">What to Watch</h2>
+        <button @click="fetchRandom()" class="card-action-btn" title="Suggest another">↻</button>
+      </div>
+      <div class="card-body">
+        <template x-if="loading">
+          <div class="skeleton-group">
+            <div class="skeleton" style="height:250px;border-radius:12px"></div>
+          </div>
+        </template>
+        <template x-if="!loading && movie">
+          <div class="wtw-content">
+            <div class="wtw-poster-wrap">
+              <template x-if="movie.posterId">
+                <img :src="'/api/media/poster/' + movie.posterId" class="wtw-poster" alt="">
+              </template>
+              <div class="wtw-overlay">
+                <div class="wtw-info">
+                  <div class="wtw-name" x-text="movie.name"></div>
+                  <div class="wtw-meta">
+                    <span x-text="movie.year"></span>
+                    <span x-show="movie.rating">⭐ <span x-text="movie.rating?.toFixed(1)"></span></span>
+                    <span x-show="movie.runtime" x-text="Math.floor(movie.runtime / 60) + 'h ' + (movie.runtime % 60) + 'm'"></span>
+                  </div>
+                  <div class="wtw-overview" x-text="movie.overview?.substring(0, 150) + (movie.overview?.length > 150 ? '...' : '')"></div>
+                </div>
+              </div>
+            </div>
+            <button @click="fetchRandom()" class="wtw-suggest-btn">🎲 Suggest Another</button>
+          </div>
+        </template>
+        <template x-if="!loading && !movie">
+          <div class="error-state"><p>No movie found</p><button @click="fetchRandom()" class="retry-btn">Retry</button></div>
         </template>
       </div>
     </section>
@@ -638,6 +1018,9 @@
         _sortableWidgets: null,
         _sortableBookmarks: null,
         _sortableServices: null,
+        widgetSizes: {},
+        resizeOpen: null,
+        bgGradient: '',
 
         weather: { loading: true, data: null, error: null },
         bookmarks: { loading: true, data: [] },
@@ -652,6 +1035,7 @@
           this.fetchServices();
           this.fetchStocks();
           this.applyWidgetOrder();
+          this.fetchWidgetSizes();
 
           // Auto-refresh intervals
           setInterval(() => this.fetchWeather(), 30 * 60 * 1000);    // 30 min
@@ -711,6 +1095,57 @@
           }
         },
 
+        // === Widget Sizes ===
+        async fetchWidgetSizes() {
+          try {
+            const resp = await fetch('/api/widget-order/sizes');
+            if (!resp.ok) return;
+            const sizes = await resp.json();
+            const map = {};
+            for (const s of sizes) {
+              map[s.widget_id] = { width: s.width || 1, height: s.height || 'auto' };
+            }
+            this.widgetSizes = map;
+            this.applyWidgetSizes();
+          } catch (e) {
+            console.error('Widget sizes error:', e);
+          }
+        },
+
+        applyWidgetSizes() {
+          const grid = document.querySelector('.dashboard-grid');
+          if (!grid) return;
+          for (const [id, size] of Object.entries(this.widgetSizes)) {
+            const el = grid.querySelector(`[data-widget-id="${id}"]`);
+            if (!el) continue;
+            el.setAttribute('data-width', size.width);
+            el.setAttribute('data-height', size.height);
+            el.style.gridColumn = size.width > 1 ? `span ${size.width}` : '';
+          }
+        },
+
+        getWidgetSize(widgetId) {
+          return this.widgetSizes[widgetId] || { width: 1, height: 'auto' };
+        },
+
+        async setWidgetSize(widgetId, width, height) {
+          this.widgetSizes[widgetId] = { width, height };
+          this.applyWidgetSizes();
+          try {
+            await fetch('/api/widget-order/sizes', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify([{ widget_id: widgetId, width, height }]),
+            });
+          } catch (e) {
+            console.error('Save widget size error:', e);
+          }
+        },
+
+        toggleResize(widgetId) {
+          this.resizeOpen = this.resizeOpen === widgetId ? null : widgetId;
+        },
+
         // === Edit Mode ===
         enterEditMode() {
           this.editMode = true;
@@ -719,6 +1154,7 @@
 
         exitEditMode() {
           this.editMode = false;
+          this.resizeOpen = null;
           this.destroySortables();
         },
 
@@ -959,6 +1395,16 @@
           return d.toLocaleDateString('en', { weekday: 'short' });
         },
 
+        applyBackground() {
+          const h = parseInt(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', hour12: false, timeZone: 'Asia/Jerusalem' }));
+          let mid;
+          if (h >= 21 || h < 5) mid = '#0d0d1a';
+          else if (h >= 5 && h < 12) mid = '#0f1020';
+          else if (h >= 12 && h < 17) mid = '#10101f';
+          else mid = '#120e1e';
+          this.bgGradient = 'background: linear-gradient(135deg, #0a0a0f 0%, ' + mid + ' 50%, #0a0a0f 100%)';
+        },
+
         sparklinePath(prices, width, height) {
           if (!prices || prices.length < 2) return '';
           const min = Math.min(...prices);
@@ -991,12 +1437,15 @@
         continueW: { loading: true, data: [] },
         recent: { loading: true, data: [] },
         playing: { loading: true, data: [] },
+        mediaStats: '',
 
         init() {
           this.fetchContinue();
           this.fetchRecent();
           this.fetchPlaying();
+          this.fetchMediaStats();
           setInterval(() => this.fetchContinue(), 60 * 1000);
+          setInterval(() => this.fetchMediaStats(), 300000);
           setInterval(() => this.fetchRecent(), 60 * 1000);
           setInterval(() => this.fetchPlaying(), 15 * 1000);
         },
@@ -1025,6 +1474,16 @@
           finally { this.playing.loading = false; }
         },
 
+        async fetchMediaStats() {
+          try {
+            const r = await fetch('/api/media-stats');
+            if (r.ok) {
+              const d = await r.json();
+              this.mediaStats = `🎬 ${d.movieCount} movies · 📺 ${d.seriesCount} series · ▶️ ${d.watchedThisMonth || 0} watched this month`;
+            }
+          } catch(e) { console.error('Media stats error:', e); }
+        },
+
         timeAgoMedia(dateStr) {
           if (!dateStr) return '';
           const now = new Date();
@@ -1042,14 +1501,39 @@
       return {
         time: '',
         date: '',
+        greeting: '',
+        summary: '',
         startClock() {
           const update = () => {
             const now = new Date();
+            const h = parseInt(now.toLocaleTimeString('en-GB', { hour: '2-digit', hour12: false, timeZone: 'Asia/Jerusalem' }));
             this.time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Jerusalem' });
             this.date = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jerusalem' });
+            if (h >= 5 && h < 12) this.greeting = 'בוקר טוב, בן ☀️';
+            else if (h >= 12 && h < 17) this.greeting = 'צהריים טובים, בן 🌤️';
+            else if (h >= 17 && h < 21) this.greeting = 'ערב טוב, בן 🌅';
+            else this.greeting = 'לילה טוב, בן 🌙';
           };
           update();
           setInterval(update, 1000);
+          this.fetchSummary();
+          setInterval(() => this.fetchSummary(), 30000);
+        },
+        async fetchSummary() {
+          try {
+            const [svc, qbit, media] = await Promise.all([
+              fetch('/api/services').then(r => r.ok ? r.json() : []),
+              fetch('/api/qbit/summary').then(r => r.ok ? r.json() : null).catch(() => null),
+              fetch('/api/media/playing').then(r => r.ok ? r.json() : []).catch(() => [])
+            ]);
+            const online = svc.filter(s => s.online).length;
+            const downloading = qbit?.downloading || 0;
+            const watching = media?.length || 0;
+            const parts = [online + ' services online'];
+            if (downloading > 0) parts.push(downloading + ' downloading');
+            if (watching > 0) parts.push(watching + ' watching now');
+            this.summary = parts.join(' · ');
+          } catch(e) { this.summary = ''; }
         },
       };
     }

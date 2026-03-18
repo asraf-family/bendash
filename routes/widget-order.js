@@ -35,4 +35,37 @@ router.put('/', (req, res) => {
   }
 });
 
+// GET widget sizes
+router.get('/sizes', (req, res) => {
+  try {
+    const sizes = db.prepare('SELECT * FROM widget_sizes').all();
+    res.json(sizes);
+  } catch (err) {
+    console.error('Widget sizes GET error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch widget sizes' });
+  }
+});
+
+// PUT save widget sizes
+router.put('/sizes', (req, res) => {
+  try {
+    const items = req.body;
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ error: 'Array of {widget_id, width, height} required' });
+    }
+
+    const upsert = db.prepare('INSERT INTO widget_sizes (widget_id, width, height) VALUES (?, ?, ?) ON CONFLICT(widget_id) DO UPDATE SET width = excluded.width, height = excluded.height');
+    const save = db.transaction((items) => {
+      for (const item of items) {
+        upsert.run(item.widget_id, item.width || 1, item.height || 'auto');
+      }
+    });
+    save(items);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Widget sizes PUT error:', err.message);
+    res.status(500).json({ error: 'Failed to save widget sizes' });
+  }
+});
+
 module.exports = router;
