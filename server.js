@@ -19,6 +19,10 @@ app.use('/api/rss', require('./routes/rss'));
 app.use('/api/bookmarks', require('./routes/bookmarks'));
 app.use('/api/services', require('./routes/services'));
 app.use('/api/stocks', require('./routes/stocks'));
+app.use('/api/media', require('./routes/media'));
+app.use('/api/alfred-apps', require('./routes/alfred-apps'));
+app.use('/api/qbit', require('./routes/qbit'));
+app.use('/api/truenas', require('./routes/truenas'));
 
 // SPA fallback
 app.get('*', (req, res) => {

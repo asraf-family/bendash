@@ -213,6 +213,273 @@
       </div>
     </section>
 
+    <!-- qBittorrent -->
+    <section class="card qbit-card" x-data="{ qbit: { loading: true, data: null } }" x-init="
+      async function fetchQbit() {
+        try {
+          const r = await fetch('/api/qbit/summary');
+          qbit.data = await r.json();
+        } catch(e) { console.error('qbit error:', e); }
+        qbit.loading = false;
+      }
+      fetchQbit();
+      setInterval(fetchQbit, 30000);
+    ">
+      <div class="card-header">
+        <span class="card-icon">⬇️</span>
+        <h2 class="card-title">Downloads</h2>
+      </div>
+      <div class="card-body">
+        <template x-if="qbit.loading">
+          <div class="skeleton-group">
+            <div class="skeleton skeleton-md"></div>
+            <div class="skeleton skeleton-sm"></div>
+          </div>
+        </template>
+        <template x-if="!qbit.loading && qbit.data && qbit.data.connected">
+          <div class="qbit-content">
+            <div class="qbit-speeds">
+              <div class="qbit-speed">
+                <span class="qbit-arrow down">↓</span>
+                <span class="qbit-speed-value" x-text="qbit.data.downloadSpeed"></span>
+              </div>
+              <div class="qbit-speed">
+                <span class="qbit-arrow up">↑</span>
+                <span class="qbit-speed-value" x-text="qbit.data.uploadSpeed"></span>
+              </div>
+            </div>
+            <div class="qbit-counts">
+              <span class="qbit-count"><span class="qbit-count-num" x-text="qbit.data.downloading"></span> downloading</span>
+              <span class="qbit-count"><span class="qbit-count-num" x-text="qbit.data.seeding"></span> seeding</span>
+              <span class="qbit-count"><span class="qbit-count-num" x-text="qbit.data.paused"></span> paused</span>
+            </div>
+            <div class="qbit-totals">
+              <span>⬇ <span x-text="qbit.data.totalDownloaded"></span></span>
+              <span>⬆ <span x-text="qbit.data.totalUploaded"></span></span>
+            </div>
+          </div>
+        </template>
+        <template x-if="!qbit.loading && qbit.data && !qbit.data.connected">
+          <div class="error-state"><p>qBittorrent offline</p></div>
+        </template>
+      </div>
+    </section>
+
+    <!-- TrueNAS -->
+    <section class="card truenas-card" x-data="{ nas: { loading: true, data: null, error: null } }" x-init="
+      async function fetchNAS() {
+        try {
+          const r = await fetch('/api/truenas/status');
+          if (!r.ok) throw new Error('Failed');
+          nas.data = await r.json();
+          nas.error = null;
+        } catch(e) { nas.error = e.message; }
+        nas.loading = false;
+      }
+      fetchNAS();
+      setInterval(fetchNAS, 60000);
+    ">
+      <div class="card-header">
+        <span class="card-icon">💾</span>
+        <h2 class="card-title">TrueNAS</h2>
+      </div>
+      <div class="card-body">
+        <template x-if="nas.loading">
+          <div class="skeleton-group">
+            <div class="skeleton skeleton-md"></div>
+            <div class="skeleton skeleton-md"></div>
+          </div>
+        </template>
+        <template x-if="!nas.loading && nas.data">
+          <div class="truenas-content">
+            <div class="truenas-section">
+              <div class="truenas-section-title">Pools</div>
+              <template x-for="pool in nas.data.pools" :key="pool.name">
+                <div class="truenas-pool">
+                  <div class="truenas-pool-header">
+                    <span class="truenas-pool-name" x-text="pool.name"></span>
+                    <span class="truenas-badge" :class="pool.status === 'ONLINE' ? 'badge-green' : 'badge-red'" x-text="pool.status"></span>
+                  </div>
+                  <div class="truenas-bar-wrap">
+                    <div class="truenas-bar">
+                      <div class="truenas-bar-fill" :style="'width:' + pool.usedPercent + '%'" :class="pool.usedPercent > 85 ? 'bar-red' : pool.usedPercent > 70 ? 'bar-yellow' : ''"></div>
+                    </div>
+                    <span class="truenas-percent" x-text="pool.usedPercent + '%'"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div class="truenas-section" x-show="nas.data.apps && nas.data.apps.length > 0">
+              <div class="truenas-section-title">Apps</div>
+              <div class="truenas-apps-grid">
+                <template x-for="app in nas.data.apps" :key="app.name">
+                  <div class="truenas-app">
+                    <span class="dot" :class="app.state === 'running' ? 'dot-green' : 'dot-red'"></span>
+                    <span class="truenas-app-name" x-text="app.name"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </template>
+        <template x-if="!nas.loading && nas.error">
+          <div class="error-state"><p x-text="nas.error"></p></div>
+        </template>
+      </div>
+    </section>
+
+    <!-- Media Center -->
+    <section class="card media-card" x-data="mediaCenter()" x-init="init()">
+      <div class="card-header">
+        <span class="card-icon">🎬</span>
+        <h2 class="card-title">Media Center</h2>
+        <div class="media-tabs">
+          <button class="media-tab" :class="tab === 'continue' && 'active'" @click="tab = 'continue'">Continue</button>
+          <button class="media-tab" :class="tab === 'recent' && 'active'" @click="tab = 'recent'">Recent</button>
+          <button class="media-tab" :class="tab === 'playing' && 'active'" @click="tab = 'playing'">
+            Now Playing
+            <span class="now-playing-dot" x-show="playing.data.length > 0"></span>
+          </button>
+        </div>
+      </div>
+      <div class="card-body">
+
+        <!-- Continue Watching -->
+        <div x-show="tab === 'continue'">
+          <template x-if="continueW.loading">
+            <div class="media-scroll">
+              <template x-for="i in 4" :key="i"><div class="skeleton media-skeleton-poster"></div></template>
+            </div>
+          </template>
+          <template x-if="!continueW.loading && continueW.data.length === 0">
+            <div class="media-empty">Nothing in progress</div>
+          </template>
+          <template x-if="!continueW.loading && continueW.data.length > 0">
+            <div class="media-scroll">
+              <template x-for="item in continueW.data" :key="item.id">
+                <div class="media-poster-card">
+                  <div class="media-poster-img-wrap">
+                    <img :src="item.imagePrimary || ''" alt="" class="media-poster-img" onerror="this.parentElement.classList.add('no-img')">
+                    <div class="media-poster-no-img" x-text="item.name?.charAt(0) || '?'"></div>
+                  </div>
+                  <div class="media-progress-bar">
+                    <div class="media-progress-fill" :style="'width:' + item.progressPercent + '%'"></div>
+                  </div>
+                  <div class="media-poster-title" x-text="item.seriesName || item.name"></div>
+                  <div class="media-poster-sub" x-show="item.episodeTitle" x-text="item.episodeTitle"></div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- Recently Added -->
+        <div x-show="tab === 'recent'">
+          <template x-if="recent.loading">
+            <div class="media-scroll">
+              <template x-for="i in 4" :key="i"><div class="skeleton media-skeleton-poster"></div></template>
+            </div>
+          </template>
+          <template x-if="!recent.loading && recent.data.length === 0">
+            <div class="media-empty">No recent additions</div>
+          </template>
+          <template x-if="!recent.loading && recent.data.length > 0">
+            <div class="media-scroll">
+              <template x-for="item in recent.data" :key="item.id">
+                <div class="media-poster-card">
+                  <div class="media-poster-img-wrap">
+                    <img :src="item.imagePrimary || ''" alt="" class="media-poster-img" onerror="this.parentElement.classList.add('no-img')">
+                    <div class="media-poster-no-img" x-text="item.name?.charAt(0) || '?'"></div>
+                  </div>
+                  <div class="media-poster-title" x-text="item.name"></div>
+                  <div class="media-poster-sub" x-text="item.dateCreated ? timeAgoMedia(item.dateCreated) : ''"></div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- Now Playing -->
+        <div x-show="tab === 'playing'">
+          <template x-if="playing.loading">
+            <div class="skeleton-group">
+              <template x-for="i in 2" :key="i"><div class="skeleton skeleton-md"></div></template>
+            </div>
+          </template>
+          <template x-if="!playing.loading && playing.data.length === 0">
+            <div class="media-empty">Nothing playing right now</div>
+          </template>
+          <template x-if="!playing.loading && playing.data.length > 0">
+            <div class="media-playing-list">
+              <template x-for="(s, i) in playing.data" :key="i">
+                <div class="media-playing-item">
+                  <div class="media-playing-avatar" x-text="s.user?.charAt(0) || '?'"></div>
+                  <div class="media-playing-info">
+                    <div class="media-playing-title" x-text="s.title"></div>
+                    <div class="media-playing-meta">
+                      <span x-text="s.user"></span>
+                      <span class="media-playing-sep">&middot;</span>
+                      <span x-text="s.player"></span>
+                      <span class="media-playing-badge" :class="'badge-' + s.source" x-text="s.source"></span>
+                    </div>
+                    <div class="media-progress-bar playing-progress">
+                      <div class="media-progress-fill" :style="'width:' + s.progress + '%'"></div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Alfred Apps -->
+    <section class="card alfred-apps-card" x-data="alfredApps()" x-init="init()">
+      <div class="card-header">
+        <span class="card-icon">🤖</span>
+        <h2 class="card-title">Alfred Apps</h2>
+        <span class="services-count" x-show="!loading">
+          <span class="dot dot-green"></span>
+          <span x-text="apps.filter(a => a.status === 'up').length + '/' + apps.length"></span>
+        </span>
+      </div>
+      <div class="card-body">
+        <template x-if="loading">
+          <div class="skeleton-group">
+            <template x-for="i in 4" :key="i"><div class="skeleton skeleton-sm"></div></template>
+          </div>
+        </template>
+        <template x-if="!loading && error">
+          <div class="error-state">
+            <p x-text="error"></p>
+            <button @click="fetchStatus()" class="retry-btn">Retry</button>
+          </div>
+        </template>
+        <template x-if="!loading && !error">
+          <div class="alfred-apps-list">
+            <template x-for="app in apps" :key="app.id">
+              <div class="alfred-app-row">
+                <span class="dot" :class="app.status === 'up' ? 'dot-green' : 'dot-red'"></span>
+                <span class="alfred-app-name" x-text="app.name"></span>
+                <span class="alfred-app-port" x-text="':' + app.port"></span>
+                <span class="alfred-app-uptime" x-text="app.status === 'up' ? formatUptime(app.uptime) : '—'"></span>
+                <button
+                  class="alfred-app-btn"
+                  :class="app.status === 'up' ? 'btn-stop' : 'btn-start'"
+                  :disabled="app._busy"
+                  @click="toggle(app)"
+                  x-text="app.status === 'up' ? '⏹' : '▶'"
+                  :title="app.status === 'up' ? 'Stop' : 'Start'"
+                ></button>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+    </section>
+
   </main>
 
   <!-- Add Bookmark Modal -->
@@ -432,6 +699,59 @@
       };
     }
 
+    function mediaCenter() {
+      return {
+        tab: 'continue',
+        continueW: { loading: true, data: [] },
+        recent: { loading: true, data: [] },
+        playing: { loading: true, data: [] },
+
+        init() {
+          this.fetchContinue();
+          this.fetchRecent();
+          this.fetchPlaying();
+          setInterval(() => this.fetchContinue(), 60 * 1000);
+          setInterval(() => this.fetchRecent(), 60 * 1000);
+          setInterval(() => this.fetchPlaying(), 15 * 1000);
+        },
+
+        async fetchContinue() {
+          try {
+            const resp = await fetch('/api/media/continue');
+            if (resp.ok) this.continueW.data = await resp.json();
+          } catch (e) { console.error('Media continue error:', e); }
+          finally { this.continueW.loading = false; }
+        },
+
+        async fetchRecent() {
+          try {
+            const resp = await fetch('/api/media/recent');
+            if (resp.ok) this.recent.data = await resp.json();
+          } catch (e) { console.error('Media recent error:', e); }
+          finally { this.recent.loading = false; }
+        },
+
+        async fetchPlaying() {
+          try {
+            const resp = await fetch('/api/media/playing');
+            if (resp.ok) this.playing.data = await resp.json();
+          } catch (e) { console.error('Media playing error:', e); }
+          finally { this.playing.loading = false; }
+        },
+
+        timeAgoMedia(dateStr) {
+          if (!dateStr) return '';
+          const now = new Date();
+          const then = new Date(dateStr);
+          const diff = Math.floor((now - then) / 1000);
+          if (diff < 60) return 'just now';
+          if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+          if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+          return Math.floor(diff / 86400) + 'd ago';
+        },
+      };
+    }
+
     function clock() {
       return {
         time: '',
@@ -444,6 +764,55 @@
           };
           update();
           setInterval(update, 1000);
+        },
+      };
+    }
+    function alfredApps() {
+      return {
+        loading: true,
+        error: null,
+        apps: [],
+
+        init() {
+          this.fetchStatus();
+          setInterval(() => this.fetchStatus(), 30 * 1000);
+        },
+
+        async fetchStatus() {
+          try {
+            const resp = await fetch('/api/alfred-apps/status');
+            if (!resp.ok) throw new Error('Failed to load');
+            this.apps = (await resp.json()).map(a => ({ ...a, _busy: false }));
+            this.error = null;
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async toggle(app) {
+          const action = app.status === 'up' ? 'stop' : 'start';
+          app._busy = true;
+          try {
+            await fetch(`/api/alfred-apps/${app.id}/${action}`, { method: 'POST' });
+            await this.fetchStatus();
+          } catch (err) {
+            console.error('Alfred Apps toggle error:', err);
+          } finally {
+            app._busy = false;
+          }
+        },
+
+        formatUptime(seconds) {
+          if (!seconds || seconds < 0) return '—';
+          const d = Math.floor(seconds / 86400);
+          const h = Math.floor((seconds % 86400) / 3600);
+          const m = Math.floor((seconds % 3600) / 60);
+          const s = Math.floor(seconds % 60);
+          if (d > 0) return d + 'd ' + h + 'h ' + m + 'm';
+          if (h > 0) return h + 'h ' + m + 'm ' + s + 's';
+          return m + 'm ' + s + 's';
         },
       };
     }
