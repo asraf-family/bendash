@@ -4,7 +4,7 @@ const fetch = require('node-fetch');
 const { parseStringPromise } = require('xml2js');
 
 let cache = { data: null, ts: 0 };
-const CACHE_TTL = 5 * 60 * 1000; // 5 min
+const CACHE_TTL = 15 * 60 * 1000; // 15 min
 
 function parseHebitsTitle(title) {
   // Format: [ Category ] Hebrew Name Year [ Release.Name ] [ Source / Container / Codec / Resolution / Language / Subs ]

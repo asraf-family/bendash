@@ -1,5 +1,6 @@
 const express = require('express');
 const { execSync } = require('child_process');
+const fs = require('fs');
 const fetch = require('node-fetch');
 const https = require('https');
 const router = express.Router();
@@ -31,10 +32,46 @@ function getMacStats() {
       memTotal = memUsed + memUnused;
     }
   } catch (err) {
-    console.error('top error:', err.message);
+    // macOS top failed — try Linux fallbacks
+    try {
+      cpu = getLinuxCpu();
+    } catch (e) {
+      console.error('CPU fallback error:', e.message);
+    }
+    try {
+      const mem = getLinuxMemory();
+      if (mem) {
+        memUsed = mem.used;
+        memTotal = mem.total;
+      }
+    } catch (e) {
+      console.error('Memory fallback error:', e.message);
+    }
   }
 
   return { cpu, memUsed, memTotal };
+}
+
+function getLinuxCpu() {
+  // Use load average as a simple CPU indicator
+  const loadavg = fs.readFileSync('/proc/loadavg', 'utf-8');
+  const load1 = parseFloat(loadavg.split(' ')[0]);
+  const numCpus = require('os').cpus().length || 1;
+  return Math.min(100, Math.round((load1 / numCpus) * 100));
+}
+
+function getLinuxMemory() {
+  const meminfo = fs.readFileSync('/proc/meminfo', 'utf-8');
+  const getValue = (key) => {
+    const match = meminfo.match(new RegExp(`${key}:\\s*(\\d+)`));
+    return match ? parseInt(match[1]) : null;
+  };
+  const totalKB = getValue('MemTotal');
+  const availableKB = getValue('MemAvailable');
+  if (totalKB == null || availableKB == null) return null;
+  const totalMB = Math.round(totalKB / 1024);
+  const usedMB = Math.round((totalKB - availableKB) / 1024);
+  return { total: totalMB, used: usedMB };
 }
 
 function getDiskStats() {

@@ -199,7 +199,7 @@ router.get('/poster/:itemId', async (req, res) => {
     if (!resp.ok) return res.status(resp.status).end();
     const contentType = resp.headers.get('content-type');
     if (contentType) res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
     resp.body.pipe(res);
   } catch (err) {
     console.error('Poster proxy error:', err.message);

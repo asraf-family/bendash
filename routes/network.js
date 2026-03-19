@@ -21,10 +21,15 @@ async function getWanIp() {
 async function getDeviceCount() {
   try {
     // Login to UniFi
-    const loginResp = await fetch('https://192.168.0.1:443/api/auth/login', {
+    const unifiUrl = process.env.UNIFI_URL || 'https://192.168.0.1';
+    const unifiUser = process.env.UNIFI_USER;
+    const unifiPass = process.env.UNIFI_PASS;
+    if (!unifiUser || !unifiPass) return null;
+
+    const loginResp = await fetch(`${unifiUrl}:443/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'Alfred', password: 'Ben302853973!' }),
+      body: JSON.stringify({ username: unifiUser, password: unifiPass }),
       agent,
     });
     if (!loginResp.ok) return null;
@@ -32,7 +37,7 @@ async function getDeviceCount() {
     const cookies = loginResp.headers.raw()['set-cookie'];
     const cookieStr = cookies ? cookies.map(c => c.split(';')[0]).join('; ') : '';
 
-    const staResp = await fetch('https://192.168.0.1:443/proxy/network/api/s/default/stat/sta', {
+    const staResp = await fetch(`${unifiUrl}:443/proxy/network/api/s/default/stat/sta`, {
       headers: { Cookie: cookieStr },
       agent,
     });

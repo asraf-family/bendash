@@ -1,5 +1,6 @@
 const express = require('express');
 const { execSync } = require('child_process');
+const fetch = require('node-fetch');
 const router = express.Router();
 
 let cache = { data: null, ts: 0 };
@@ -12,6 +13,8 @@ router.get('/', async (req, res) => {
     }
 
     let events = [];
+
+    // Try gog CLI first (works on Mac mini)
     try {
       const raw = execSync('gog calendar list --days 2 --json', {
         timeout: 10000,
@@ -28,7 +31,19 @@ router.get('/', async (req, res) => {
       }));
     } catch (err) {
       console.error('gog calendar error:', err.message);
-      events = [];
+
+      // Fallback: fetch from Mac mini calendar proxy (for Docker)
+      const calendarSourceUrl = process.env.CALENDAR_SOURCE_URL;
+      if (calendarSourceUrl) {
+        try {
+          const resp = await fetch(calendarSourceUrl, { timeout: 10000 });
+          if (resp.ok) {
+            events = await resp.json();
+          }
+        } catch (e) {
+          console.error('Calendar source fallback error:', e.message);
+        }
+      }
     }
 
     cache = { data: events, ts: Date.now() };

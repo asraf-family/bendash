@@ -35,17 +35,25 @@ router.get('/', async (req, res) => {
     let totalPlayTimeHours = null;
 
     if (JS_URL && JS_KEY) {
-      try {
-        const resp = await fetch(`${JS_URL}/stats`, {
-          headers: { 'x-api-token': JS_KEY },
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          watchedThisMonth = data.watchedThisMonth ?? data.watched_this_month ?? null;
-          totalPlayTimeHours = data.totalPlayTimeHours ?? data.total_play_time_hours ?? null;
+      const jsHeaders = { 'x-api-token': JS_KEY };
+      // Try known Jellystat API endpoints for watch statistics
+      const endpoints = [
+        '/api/getViewsOverTime',
+        '/api/statistics',
+        '/stats',
+      ];
+      for (const endpoint of endpoints) {
+        try {
+          const resp = await fetch(`${JS_URL}${endpoint}`, { headers: jsHeaders });
+          if (resp.ok) {
+            const data = await resp.json();
+            watchedThisMonth = data.watchedThisMonth ?? data.watched_this_month ?? null;
+            totalPlayTimeHours = data.totalPlayTimeHours ?? data.total_play_time_hours ?? null;
+            break;
+          }
+        } catch (e) {
+          console.error(`Jellystat ${endpoint} error:`, e.message);
         }
-      } catch (e) {
-        console.error('Jellystat stats error:', e.message);
       }
     }
 
