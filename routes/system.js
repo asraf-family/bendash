@@ -23,15 +23,11 @@ function getMacStats() {
       cpu = Math.round(parseFloat(cpuMatch[1]) + parseFloat(cpuMatch[2]));
     }
 
-    const memMatch = top.match(/PhysMem:\s*(\d+\w)\s*used.*?(\d+\w)\s*unused/);
+    const memMatch = top.match(/PhysMem:\s*(\d+)([GM])\s*used.*?,\s*(\d+)([GM])\s*unused/);
     if (memMatch) {
-      const parse = s => {
-        const n = parseInt(s);
-        if (s.endsWith('G')) return n * 1024;
-        return n; // already MB
-      };
-      memUsed = parse(memMatch[1]);
-      const memUnused = parse(memMatch[2]);
+      const toMB = (n, unit) => unit === 'G' ? n * 1024 : n;
+      memUsed = toMB(parseInt(memMatch[1]), memMatch[2]);
+      const memUnused = toMB(parseInt(memMatch[3]), memMatch[4]);
       memTotal = memUsed + memUnused;
     }
   } catch (err) {

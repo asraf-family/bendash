@@ -7,58 +7,54 @@ let cache = { data: null, ts: 0 };
 const CACHE_TTL = 5 * 60 * 1000; // 5 min
 
 function parseHebitsTitle(title) {
-  // Format: [ Category ] Hebrew Name [ Release.Name ] [ Source / Container / Codec / Resolution / Language / Subs ]
-  const result = { hebrewName: '', parsedCategory: '', quality: '', source: '', language: '', releaseName: '' };
+  // Format: [ Category ] Hebrew Name Year [ Release.Name ] [ Source / Container / Codec / Resolution / Language / Subs ]
+  const result = { hebrewName: '', parsedCategory: '', quality: '', source: '', language: '', releaseName: '', year: '' };
 
   try {
-    // Extract all bracketed sections
+    // Extract all bracketed sections with their positions
     const brackets = [];
     const regex = /\[\s*([^\]]*?)\s*\]/g;
     let match;
     while ((match = regex.exec(title)) !== null) {
-      brackets.push(match[1].trim());
+      brackets.push({ text: match[1].trim(), start: match.index, end: match.index + match[0].length });
     }
 
     if (brackets.length >= 1) {
-      result.parsedCategory = brackets[0]; // e.g. "Movies", "Books", "Games"
+      result.parsedCategory = brackets[0].text;
     }
 
     if (brackets.length >= 3) {
-      result.releaseName = brackets[1]; // e.g. "Marty.Supreme.2025.Hybrid.1080p.BluRay..."
-      // Last bracket has tech details: "Source / Container / Codec / Resolution / Language / Subs"
-      const techParts = brackets[brackets.length - 1].split('/').map(s => s.trim());
-      // Look for resolution (quality)
+      result.releaseName = brackets[1].text;
+      // Last bracket has tech details
+      const techParts = brackets[brackets.length - 1].text.split('/').map(s => s.trim());
       for (const part of techParts) {
-        if (/4K|2160p|1080p|720p|480p|HDR/i.test(part)) {
+        if (!result.quality && /4K|2160p|1080p|720p|480p|HDR/i.test(part)) {
           result.quality = part;
-          break;
         }
-      }
-      // Look for source
-      for (const part of techParts) {
-        if (/blu-?ray|web-?dl|web-?rip|hdtv|dvd|cam|hdcam|webrip/i.test(part)) {
+        if (!result.source && /blu-?ray|web-?dl|web-?rip|hdtv|dvd|cam|hdcam|webrip|remux/i.test(part)) {
           result.source = part;
-          break;
         }
-      }
-      // Language is typically the last 1-2 parts
-      const langParts = techParts.filter(p =>
-        /עברית|אנגלית|מדובב|תרגום|מובנה|בצד|ערבית|רוסית|צרפתית/i.test(p)
-      );
-      if (langParts.length > 0) {
-        result.language = langParts.join(' / ');
+        if (/עברית|אנגלית|מדובב|תרגום|מובנה|בצד|ערבית|רוסית|צרפתית/i.test(part)) {
+          result.language = result.language ? result.language + ' / ' + part : part;
+        }
       }
     } else if (brackets.length === 2) {
-      result.releaseName = brackets[1];
+      result.releaseName = brackets[1].text;
     }
 
-    // Extract Hebrew name: text between first ] and second [
-    const afterFirstBracket = title.indexOf(']');
-    const secondBracketOpen = title.indexOf('[', afterFirstBracket + 1);
-    if (afterFirstBracket !== -1 && secondBracketOpen !== -1) {
-      result.hebrewName = title.substring(afterFirstBracket + 1, secondBracketOpen).trim();
-    } else if (afterFirstBracket !== -1) {
-      result.hebrewName = title.substring(afterFirstBracket + 1).trim();
+    // Extract Hebrew name + year: text between first ] and second [
+    if (brackets.length >= 2) {
+      const raw = title.substring(brackets[0].end, brackets[1].start).trim();
+      // Extract year (4 digits, typically 1900-2099)
+      const yearMatch = raw.match(/\b((?:19|20)\d{2})\b/);
+      if (yearMatch) {
+        result.year = yearMatch[1];
+        result.hebrewName = raw.replace(yearMatch[0], '').trim();
+      } else {
+        result.hebrewName = raw;
+      }
+    } else if (brackets.length === 1) {
+      result.hebrewName = title.substring(brackets[0].end).trim();
     }
   } catch (e) {
     // If parsing fails, hebrewName stays empty and frontend falls back to raw title
