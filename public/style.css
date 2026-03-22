@@ -2565,6 +2565,14 @@ body.edit-mode-active .card[data-grid-w="3"] { grid-column: span 3 !important; }
   text-overflow: ellipsis;
 }
 
+/* Collapsed card shrinks to fit — override grid spans and min-height */
+.card.is-collapsed {
+  grid-row: span 1 !important;
+  min-height: auto !important;
+  height: auto !important;
+  align-self: start;
+}
+
 /* Response time badge */
 .response-time {
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;

@@ -2460,7 +2460,18 @@
           // Restore collapsed state from localStorage
           try {
             const saved = localStorage.getItem('bendash-collapsed');
-            if (saved) this.collapsedWidgets = JSON.parse(saved);
+            if (saved) {
+              this.collapsedWidgets = JSON.parse(saved);
+              // Apply is-collapsed class to previously collapsed cards
+              this.$nextTick(() => {
+                for (const [id, collapsed] of Object.entries(this.collapsedWidgets)) {
+                  if (collapsed) {
+                    const card = document.querySelector(`[data-widget-id="${id}"]`);
+                    if (card) card.classList.add('is-collapsed');
+                  }
+                }
+              });
+            }
           } catch(e) {}
 
           // Keyboard navigation: Escape closes modals/dropdowns/fullscreen; ? for shortcuts; R for refresh all
@@ -3355,6 +3366,9 @@
         toggleCollapse(widgetId) {
           if (this.editMode) return;
           this.collapsedWidgets[widgetId] = !this.collapsedWidgets[widgetId];
+          // Toggle is-collapsed class on the card element for CSS shrink
+          const card = document.querySelector(`[data-widget-id="${widgetId}"]`);
+          if (card) card.classList.toggle('is-collapsed', this.collapsedWidgets[widgetId]);
           try {
             localStorage.setItem('bendash-collapsed', JSON.stringify(this.collapsedWidgets));
           } catch(e) {}
