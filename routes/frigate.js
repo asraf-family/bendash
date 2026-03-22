@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const fetch = require('node-fetch');
 
-const FRIGATE_URL = process.env.FRIGATE_URL || 'http://192.168.0.13:30063';
+const FRIGATE_URL = process.env.FRIGATE_URL || 'http://192.168.0.13:30194';
 
 // GET /api/frigate/cameras - list cameras with latest snapshot URLs
 router.get('/cameras', async (req, res) => {
