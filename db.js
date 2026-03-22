@@ -177,4 +177,25 @@ db.getCache = getCache;
 db.setCache = setCache;
 db.clearCache = clearCache;
 
+// Periodic cleanup: expired cache rows
+function pruneExpiredCache() {
+  db.prepare('DELETE FROM cache WHERE expires_at < ?').run(Date.now());
+}
+pruneExpiredCache();
+setInterval(pruneExpiredCache, 60 * 60 * 1000);
+
+// Periodic cleanup: alerts older than 30 days
+function pruneOldAlerts() {
+  db.prepare("DELETE FROM alerts WHERE created_at < datetime('now', '-30 days')").run();
+}
+pruneOldAlerts();
+setInterval(pruneOldAlerts, 24 * 60 * 60 * 1000);
+
+// Periodic cleanup: service_history older than 48 hours
+function pruneOldHistory() {
+  db.prepare("DELETE FROM service_history WHERE timestamp < datetime('now', '-48 hours')").run();
+}
+pruneOldHistory();
+setInterval(pruneOldHistory, 60 * 60 * 1000);
+
 module.exports = db;

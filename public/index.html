@@ -269,7 +269,7 @@
             <button @click="fetchWeather()" class="retry-btn">Retry</button>
           </div>
         </template>
-      <div class="card-updated" x-show="weather.lastUpdated" x-text="'Updated ' + timeAgo(weather.lastUpdated)"></div>
+      <div class="card-updated" x-show="weather.lastUpdated" x-text="'Updated ' + timeAgo(weather.lastUpdated)" x-effect="if(weather.lastUpdated) $el.dataset.updatedAt = weather.lastUpdated"></div>
       </div>
     </section>
 
@@ -319,7 +319,7 @@
             </template>
           </div>
         </template>
-      <div class="card-updated" x-show="stocks.lastUpdated" x-text="'Updated ' + timeAgo(stocks.lastUpdated)"></div>
+      <div class="card-updated" x-show="stocks.lastUpdated" x-text="'Updated ' + timeAgo(stocks.lastUpdated)" x-effect="if(stocks.lastUpdated) $el.dataset.updatedAt = stocks.lastUpdated"></div>
       </div>
     </section>
 
@@ -365,7 +365,7 @@
             <button @click="fetchRSS()" class="retry-btn">Retry</button>
           </div>
         </template>
-      <div class="card-updated" x-show="rss.lastUpdated" x-text="'Updated ' + timeAgo(rss.lastUpdated)"></div>
+      <div class="card-updated" x-show="rss.lastUpdated" x-text="'Updated ' + timeAgo(rss.lastUpdated)" x-effect="if(rss.lastUpdated) $el.dataset.updatedAt = rss.lastUpdated"></div>
       </div>
     </section>
 
@@ -452,7 +452,7 @@
             </template>
           </div>
         </template>
-      <div class="card-updated" x-show="services.lastUpdated" x-text="'Updated ' + timeAgo(services.lastUpdated)"></div>
+      <div class="card-updated" x-show="services.lastUpdated" x-text="'Updated ' + timeAgo(services.lastUpdated)" x-effect="if(services.lastUpdated) $el.dataset.updatedAt = services.lastUpdated"></div>
       </div>
     </section>
 
@@ -571,7 +571,7 @@
         <template x-if="!qbit.loading && qbit.data && !qbit.data.connected">
           <div class="error-state" role="alert"><p>qBittorrent offline</p></div>
         </template>
-      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)"></div>
+      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)" x-effect="if(lastUpdated) $el.dataset.updatedAt = lastUpdated"></div>
       </div>
     </section>
 
@@ -645,7 +645,7 @@
         <template x-if="!nas.loading && nas.error">
           <div class="error-state" role="alert"><p x-text="nas.error"></p></div>
         </template>
-      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)"></div>
+      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)" x-effect="if(lastUpdated) $el.dataset.updatedAt = lastUpdated"></div>
       </div>
     </section>
 
@@ -794,7 +794,7 @@
           </template>
         </div>
 
-      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)"></div>
+      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)" x-effect="if(lastUpdated) $el.dataset.updatedAt = lastUpdated"></div>
       </div>
     </section>
 
@@ -856,7 +856,7 @@
             </template>
           </div>
         </template>
-      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)"></div>
+      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)" x-effect="if(lastUpdated) $el.dataset.updatedAt = lastUpdated"></div>
       </div>
     </section>
 
@@ -903,14 +903,15 @@
         return 'https://calendar.google.com/calendar/r/search?q=' + q;
       }
     }" x-init="fetchCalendar(); setInterval(() => fetchCalendar(), 300000)">
-      <div class="card-header">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['calendar']" @click="toggleCollapse('calendar')">
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('calendar')" :title="widgetVisible('calendar') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('calendar') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">📅</span>
         <h2 class="card-title">Calendar</h2>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['calendar'] && 'collapsed'">&#9660;</span>
       </div>
-      <div class="card-body">
+      <div class="card-body" x-show="!collapsedWidgets['calendar']" x-transition.duration.200ms>
         <template x-if="loading">
           <div class="skeleton-group">
             <div class="skeleton skeleton-sm"></div>
@@ -944,15 +945,16 @@
 
     <!-- Fitness -->
     <section class="card fitness-card" data-widget-id="fitness" x-show="editMode || widgetVisible('fitness')" x-data="fitnessWidget()" x-init="fetchFitness(); setInterval(() => fetchFitness(), 300000)">
-      <div class="card-header">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['fitness']" @click="toggleCollapse('fitness')">
         <span class="drag-handle" x-show="editMode">&#x2807;</span>
         <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('fitness')" :title="widgetVisible('fitness') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('fitness') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">💪</span>
         <h2 class="card-title">Fitness</h2>
         <a :href="fitness.data?.appUrl || 'http://192.168.0.139:3000'" target="_blank" class="card-action-btn" title="Open Fitness App">↗</a>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['fitness'] && 'collapsed'">&#9660;</span>
       </div>
-      <div class="card-body">
+      <div class="card-body" x-show="!collapsedWidgets['fitness']" x-transition.duration.200ms>
         <template x-if="fitness.loading">
           <div class="skeleton-group">
             <div class="skeleton skeleton-md"></div>
@@ -1070,7 +1072,7 @@
             </template>
           </div>
         </template>
-        <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)"></div>
+        <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)" x-effect="if(lastUpdated) $el.dataset.updatedAt = lastUpdated"></div>
       </div>
     </section>
 
@@ -1254,7 +1256,7 @@
         <template x-if="!loading && cameras.length === 0">
           <div class="error-state" role="alert"><p>No cameras found</p></div>
         </template>
-        <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)"></div>
+        <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)" x-effect="if(lastUpdated) $el.dataset.updatedAt = lastUpdated"></div>
       </div>
       <!-- Live stream overlay -->
       <template x-if="liveCamera">
@@ -1439,7 +1441,7 @@
             <button @click="fetchThroughput()" class="retry-btn">Retry</button>
           </div>
         </template>
-        <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)"></div>
+        <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)" x-effect="if(lastUpdated) $el.dataset.updatedAt = lastUpdated"></div>
       </div>
     </section>
 
@@ -1677,7 +1679,7 @@
             <button @click="ag.loading = true; fetchAll()" class="retry-btn">Retry</button>
           </div>
         </template>
-        <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)"></div>
+        <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)" x-effect="if(lastUpdated) $el.dataset.updatedAt = lastUpdated"></div>
       </div>
     </section>
 
@@ -1979,21 +1981,12 @@
           setInterval(() => this.fetchRSS(), 10 * 60 * 1000);        // 10 min
           setInterval(() => this.fetchServices(), 30 * 1000);          // 30 sec
           setInterval(() => this.fetchStocks(), 15 * 60 * 1000);      // 15 min
-          // Refresh timeAgo displays every 30s via vanilla JS
+          // Refresh timeAgo displays every 30s via vanilla JS (reads data-updated-at attribute)
           setInterval(() => {
             document.querySelectorAll('.card-updated').forEach(el => {
-              const text = el.getAttribute('x-text');
-              if (text && el.__x) {
-                el.__x.$data.lastUpdated = el.__x.$data.lastUpdated; // trigger reactivity
-              }
-              // Force re-evaluate timeAgo by touching the DOM
-              const match = el.textContent.match(/Updated /);
-              if (match && el._x_dataStack) {
-                const scope = el._x_dataStack[0];
-                if (scope && scope.lastUpdated) {
-                  const txt = 'Updated ' + timeAgo(scope.lastUpdated);
-                  el.textContent = txt;
-                }
+              const ts = el.dataset.updatedAt;
+              if (ts) {
+                el.textContent = 'Updated ' + timeAgo(parseInt(ts));
               }
             });
           }, 30000);
@@ -2448,36 +2441,29 @@
           try {
             const resp = await fetch('/api/services');
             const data = await resp.json();
-            // Fetch 24h history for each service (for timeline bar)
-            await Promise.all(data.map(async (svc) => {
-              try {
-                const hResp = await fetch('/api/services/history/' + encodeURIComponent(svc.name));
-                if (hResp.ok) {
-                  const history = await hResp.json();
-                  const buckets = [];
-                  const now = Date.now();
-                  const slotMs = 30 * 60 * 1000;
-                  const slots = 48;
-                  for (let i = 0; i < slots; i++) {
-                    const slotStart = now - (slots - i) * slotMs;
-                    const slotEnd = slotStart + slotMs;
-                    const inSlot = history.filter(h => {
-                      const t = new Date(h.timestamp + 'Z').getTime();
-                      return t >= slotStart && t < slotEnd;
-                    });
-                    if (inSlot.length === 0) {
-                      buckets.push({ online: true, timestamp: new Date(slotStart).toLocaleTimeString() });
-                    } else {
-                      const up = inSlot.filter(h => h.online).length;
-                      buckets.push({ online: up >= inSlot.length / 2, timestamp: new Date(slotStart).toLocaleTimeString() });
-                    }
-                  }
-                  svc.history = buckets;
+            // Bucket inline history (from API response) into 48 x 30-min slots for timeline bar
+            for (const svc of data) {
+              const history = svc.history || [];
+              const buckets = [];
+              const now = Date.now();
+              const slotMs = 30 * 60 * 1000;
+              const slots = 48;
+              for (let i = 0; i < slots; i++) {
+                const slotStart = now - (slots - i) * slotMs;
+                const slotEnd = slotStart + slotMs;
+                const inSlot = history.filter(h => {
+                  const t = new Date(h.timestamp + 'Z').getTime();
+                  return t >= slotStart && t < slotEnd;
+                });
+                if (inSlot.length === 0) {
+                  buckets.push({ online: true, timestamp: new Date(slotStart).toLocaleTimeString() });
                 } else {
-                  svc.history = [];
+                  const up = inSlot.filter(h => h.online).length;
+                  buckets.push({ online: up >= inSlot.length / 2, timestamp: new Date(slotStart).toLocaleTimeString() });
                 }
-              } catch(e) { svc.history = []; }
-            }));
+              }
+              svc.history = buckets;
+            }
             this.services.data = data;
             this.services.lastUpdated = Date.now();
           } catch (err) {

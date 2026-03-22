@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const fetch = require('node-fetch');
+const db = require('../db');
 
 const ADGUARD_URL = process.env.ADGUARD_URL || 'http://192.168.0.68';
 const ADGUARD_USER = process.env.ADGUARD_USER || '';
@@ -8,6 +9,38 @@ const ADGUARD_PASS = process.env.ADGUARD_PASS || '';
 
 let cache = { data: null, ts: 0 };
 const CACHE_TTL = 5 * 60 * 1000; // 5 min
+
+// --- Pause timer persistence: recover pending resume after server restart ---
+(function recoverPauseTimer() {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('adguard_resume_at');
+  if (!row) return;
+  const resumeAt = parseInt(row.value, 10);
+  const remaining = resumeAt - Date.now();
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (ADGUARD_USER && ADGUARD_PASS) {
+    headers['Authorization'] = 'Basic ' + Buffer.from(`${ADGUARD_USER}:${ADGUARD_PASS}`).toString('base64');
+  }
+
+  const resume = async () => {
+    try {
+      await fetch(`${ADGUARD_URL}/control/dns_config`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ protection_enabled: true })
+      });
+      cache = { data: null, ts: 0 };
+    } catch (e) { console.error('AdGuard resume error:', e.message); }
+    db.prepare('DELETE FROM settings WHERE key = ?').run('adguard_resume_at');
+  };
+
+  if (remaining <= 0) {
+    console.log('AdGuard pause expired while server was down — re-enabling protection');
+    resume();
+  } else {
+    console.log(`AdGuard pause still active — resuming in ${Math.round(remaining / 1000)}s`);
+    setTimeout(resume, remaining);
+  }
+})();
 
 // GET /api/adguard/stats
 router.get('/stats', async (req, res) => {
@@ -54,6 +87,11 @@ router.post('/toggle', async (req, res) => {
       body: JSON.stringify({ protection_enabled: enabled })
     });
 
+    // If manually re-enabling, clear any pending pause timer setting
+    if (enabled) {
+      db.prepare('DELETE FROM settings WHERE key = ?').run('adguard_resume_at');
+    }
+
     cache = { data: null, ts: 0 }; // clear cache
     res.json({ ok: true, enabled });
   } catch (err) {
@@ -77,8 +115,9 @@ router.post('/pause', async (req, res) => {
       body: JSON.stringify({ protection_enabled: false })
     });
 
-    // Schedule re-enable
+    // Schedule re-enable and persist to DB for crash recovery
     const resumeAt = Date.now() + duration;
+    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('adguard_resume_at', resumeAt.toString());
     setTimeout(async () => {
       try {
         await fetch(`${ADGUARD_URL}/control/dns_config`, {
@@ -88,6 +127,7 @@ router.post('/pause', async (req, res) => {
         });
         cache = { data: null, ts: 0 };
       } catch (e) { console.error('AdGuard resume error:', e.message); }
+      db.prepare('DELETE FROM settings WHERE key = ?').run('adguard_resume_at');
     }, duration);
 
     cache = { data: null, ts: 0 };

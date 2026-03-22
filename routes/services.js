@@ -118,9 +118,17 @@ router.get('/', async (req, res) => {
     // Purge old history periodically (piggyback on fetch)
     purgeOldHistory();
 
-    // Attach uptime percent to each result
+    // Attach uptime percent + 24h history to each result
+    const historyStmt = db.prepare(
+      "SELECT online, response_time as responseTime, timestamp FROM service_history WHERE service_id = ? AND timestamp >= datetime('now', '-24 hours') ORDER BY timestamp ASC"
+    );
     for (const r of results) {
       r.uptimePercent = getUptimePercent(r.id);
+      try {
+        r.history = historyStmt.all(r.id);
+      } catch (err) {
+        r.history = [];
+      }
     }
 
     cache = { data: results, ts: Date.now() };

@@ -15,6 +15,38 @@ const MAX_HISTORY = 60;
 let prevBytes = null;
 let prevBytesTs = null;
 
+// Shared UniFi session manager — avoids triple login per refresh cycle
+let unifiCookie = null;
+let cookieExpiry = 0;
+const COOKIE_TTL = 10 * 60 * 1000; // 10 minutes
+
+async function getUnifiSession() {
+  if (unifiCookie && Date.now() < cookieExpiry) return unifiCookie;
+
+  const unifiUrl = process.env.UNIFI_URL || 'https://192.168.0.1';
+  const unifiUser = process.env.UNIFI_USER;
+  const unifiPass = process.env.UNIFI_PASS;
+  if (!unifiUser || !unifiPass) return null;
+
+  const loginResp = await fetch(`${unifiUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: unifiUser, password: unifiPass }),
+    agent,
+  });
+  if (!loginResp.ok) return null;
+
+  const cookies = loginResp.headers.raw()['set-cookie'];
+  unifiCookie = cookies ? cookies.map(c => c.split(';')[0]).join('; ') : '';
+  cookieExpiry = Date.now() + COOKIE_TTL;
+  return unifiCookie;
+}
+
+function clearUnifiSession() {
+  unifiCookie = null;
+  cookieExpiry = 0;
+}
+
 async function getWanIp() {
   try {
     const resp = await fetch('https://api.ipify.org?format=json', { timeout: 5000 });
@@ -25,29 +57,20 @@ async function getWanIp() {
   }
 }
 
-async function getDeviceCount() {
+async function getDeviceCount(retry = true) {
   try {
-    // Login to UniFi
+    const cookieStr = await getUnifiSession();
+    if (!cookieStr) return null;
+
     const unifiUrl = process.env.UNIFI_URL || 'https://192.168.0.1';
-    const unifiUser = process.env.UNIFI_USER;
-    const unifiPass = process.env.UNIFI_PASS;
-    if (!unifiUser || !unifiPass) return null;
-
-    const loginResp = await fetch(`${unifiUrl}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: unifiUser, password: unifiPass }),
-      agent,
-    });
-    if (!loginResp.ok) return null;
-
-    const cookies = loginResp.headers.raw()['set-cookie'];
-    const cookieStr = cookies ? cookies.map(c => c.split(';')[0]).join('; ') : '';
-
     const staResp = await fetch(`${unifiUrl}/proxy/network/api/s/default/stat/sta`, {
       headers: { Cookie: cookieStr },
       agent,
     });
+    if (staResp.status === 401 && retry) {
+      clearUnifiSession();
+      return getDeviceCount(false);
+    }
     if (!staResp.ok) return null;
     const staData = await staResp.json();
     return Array.isArray(staData.data) ? staData.data.length : null;
@@ -89,27 +112,19 @@ router.get('/status', async (req, res) => {
   }
 });
 
-async function getThroughput() {
+async function getThroughput(retry = true) {
+  const cookieStr = await getUnifiSession();
+  if (!cookieStr) return null;
+
   const unifiUrl = process.env.UNIFI_URL || 'https://192.168.0.1';
-  const unifiUser = process.env.UNIFI_USER;
-  const unifiPass = process.env.UNIFI_PASS;
-  if (!unifiUser || !unifiPass) return null;
-
-  const loginResp = await fetch(`${unifiUrl}/api/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: unifiUser, password: unifiPass }),
-    agent,
-  });
-  if (!loginResp.ok) return null;
-
-  const cookies = loginResp.headers.raw()['set-cookie'];
-  const cookieStr = cookies ? cookies.map(c => c.split(';')[0]).join('; ') : '';
-
   const healthResp = await fetch(`${unifiUrl}/proxy/network/api/s/default/stat/health`, {
     headers: { Cookie: cookieStr },
     agent,
   });
+  if (healthResp.status === 401 && retry) {
+    clearUnifiSession();
+    return getThroughput(false);
+  }
   if (!healthResp.ok) return null;
   const healthData = await healthResp.json();
 
@@ -174,62 +189,62 @@ router.get('/throughput', async (req, res) => {
 });
 
 // GET /api/network/clients - list connected clients from UniFi
+async function fetchClients(retry = true) {
+  const cookieStr = await getUnifiSession();
+  if (!cookieStr) return { clients: [], error: 'No UniFi session' };
+
+  const unifiUrl = process.env.UNIFI_URL || 'https://192.168.0.1';
+
+  // Fetch clients and health data in parallel
+  const [staResp, healthResp] = await Promise.all([
+    fetch(`${unifiUrl}/proxy/network/api/s/default/stat/sta`, {
+      headers: { Cookie: cookieStr },
+      agent,
+    }),
+    fetch(`${unifiUrl}/proxy/network/api/s/default/stat/health`, {
+      headers: { Cookie: cookieStr },
+      agent,
+    }),
+  ]);
+
+  // Handle 401 on either response
+  if ((staResp.status === 401 || healthResp.status === 401) && retry) {
+    clearUnifiSession();
+    return fetchClients(false);
+  }
+
+  let latency = null;
+  if (healthResp.ok) {
+    const healthData = await healthResp.json();
+    const wan = Array.isArray(healthData.data)
+      ? healthData.data.find(s => s.subsystem === 'wan')
+      : null;
+    if (wan) {
+      latency = wan.latency || wan.internet_latency || wan.uptime_stats?.latency || null;
+    }
+  }
+
+  if (!staResp.ok) return { clients: [], latency, error: 'Failed to fetch clients' };
+  const staData = await staResp.json();
+
+  const clients = Array.isArray(staData.data) ? staData.data.map(c => ({
+    name: c.name || c.hostname || c.oui || 'Unknown',
+    ip: c.ip || null,
+    mac: c.mac || null,
+    rxBytes: c.rx_bytes || 0,
+    txBytes: c.tx_bytes || 0,
+    signal: c.signal != null ? c.signal : null,
+    type: c.is_wired ? 'wired' : 'wifi',
+    uptime: c.uptime || null,
+  })) : [];
+
+  return { clients, latency };
+}
+
 router.get('/clients', async (req, res) => {
   try {
-    const unifiUrl = process.env.UNIFI_URL || 'https://192.168.0.1';
-    const unifiUser = process.env.UNIFI_USER;
-    const unifiPass = process.env.UNIFI_PASS;
-    if (!unifiUser || !unifiPass) return res.json({ clients: [], error: 'No UniFi credentials' });
-
-    const loginResp = await fetch(`${unifiUrl}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: unifiUser, password: unifiPass }),
-      agent,
-    });
-    if (!loginResp.ok) return res.json({ clients: [], error: 'UniFi login failed' });
-
-    const cookies = loginResp.headers.raw()['set-cookie'];
-    const cookieStr = cookies ? cookies.map(c => c.split(';')[0]).join('; ') : '';
-
-    // Fetch clients and health data in parallel
-    const [staResp, healthResp] = await Promise.all([
-      fetch(`${unifiUrl}/proxy/network/api/s/default/stat/sta`, {
-        headers: { Cookie: cookieStr },
-        agent,
-      }),
-      fetch(`${unifiUrl}/proxy/network/api/s/default/stat/health`, {
-        headers: { Cookie: cookieStr },
-        agent,
-      }),
-    ]);
-
-    let latency = null;
-    if (healthResp.ok) {
-      const healthData = await healthResp.json();
-      const wan = Array.isArray(healthData.data)
-        ? healthData.data.find(s => s.subsystem === 'wan')
-        : null;
-      if (wan) {
-        latency = wan.latency || wan.internet_latency || wan.uptime_stats?.latency || null;
-      }
-    }
-
-    if (!staResp.ok) return res.json({ clients: [], latency, error: 'Failed to fetch clients' });
-    const staData = await staResp.json();
-
-    const clients = Array.isArray(staData.data) ? staData.data.map(c => ({
-      name: c.name || c.hostname || c.oui || 'Unknown',
-      ip: c.ip || null,
-      mac: c.mac || null,
-      rxBytes: c.rx_bytes || 0,
-      txBytes: c.tx_bytes || 0,
-      signal: c.signal != null ? c.signal : null,
-      type: c.is_wired ? 'wired' : 'wifi',
-      uptime: c.uptime || null,
-    })) : [];
-
-    res.json({ clients, latency });
+    const result = await fetchClients();
+    res.json(result);
   } catch (err) {
     console.error('Network clients error:', err.message);
     res.json({ clients: [], error: err.message });
