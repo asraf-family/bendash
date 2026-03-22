@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const fetch = globalThis.fetch || require('node-fetch');
+const fetch = require('node-fetch');
 
 const FRIGATE_URL = process.env.FRIGATE_URL || 'http://192.168.0.13:30194';
 

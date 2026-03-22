@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const fetch = globalThis.fetch || require('node-fetch');
+const fetch = require('node-fetch');
 
 const JF_URL = process.env.JELLYFIN_URL;
 const JF_KEY = process.env.JELLYFIN_API_KEY;
