@@ -3020,7 +3020,6 @@ body.edit-mode-active .dashboard-grid {
 }
 
 body.edit-mode-active .dashboard-grid .card {
-  grid-column: auto !important;
   grid-row: auto !important;
 }
 
