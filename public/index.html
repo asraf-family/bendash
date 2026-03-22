@@ -2705,14 +2705,18 @@
             const items = await resp.json();
             if (!items.length) return;
 
-            // Apply order
+            // Apply order (skip hero card — it must always be first)
             const grid = document.querySelector('.dashboard-grid');
             if (grid) {
               const sorted = items.sort((a, b) => a.sort_order - b.sort_order);
               for (const item of sorted) {
+                if (item.widget_id === 'weather') continue;
                 const el = grid.querySelector(`[data-widget-id="${item.widget_id}"]`);
                 if (el) grid.appendChild(el);
               }
+              // Ensure hero card is always first
+              const heroEl = grid.querySelector('[data-widget-id="weather"]');
+              if (heroEl) grid.prepend(heroEl);
             }
 
             // Apply sizes and visibility

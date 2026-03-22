@@ -445,12 +445,30 @@ body::-webkit-scrollbar-thumb:hover {
   border-radius: var(--radius);
   padding: 32px 40px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 40px;
+  flex-direction: column;
   position: relative;
   overflow: hidden;
 }
+/* Hero Card Body — 3-column horizontal layout */
+.hero-card-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 40px;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+.hero-left {
+  flex: 0 0 auto;
+}
+.hero-center {
+  flex: 1;
+}
+.hero-right {
+  flex: 0 0 auto;
+}
+
 .hero-card::before {
   content: '';
   position: absolute;
@@ -1199,8 +1217,11 @@ body::-webkit-scrollbar-thumb:hover {
   }
 
   .hero-card {
-    flex-direction: column;
     padding: 24px 20px;
+  }
+
+  .hero-card-body {
+    flex-direction: column;
     gap: 20px;
     text-align: center;
   }
@@ -3013,6 +3034,12 @@ body.edit-mode-active .dashboard-grid .card {
   grid-row: auto !important;
 }
 
+/* Hero card keeps full width in edit mode but can be reordered */
+body.edit-mode-active .dashboard-grid .hero-card {
+  grid-column: 1 / -1 !important;
+  grid-row: auto !important;
+}
+
 /* Service delete button */
 .service-delete {
   background: rgba(239, 68, 68, 0.2);
@@ -4437,6 +4464,24 @@ body.edit-mode-active .card[x-show*="widgetVisible"]:not([style*="display: none"
 
   .hero-card {
     padding: 20px 16px;
+  }
+
+  .hero-card-body {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 16px;
+  }
+
+  .hero-left,
+  .hero-center,
+  .hero-right {
+    flex: none;
+    width: 100%;
+  }
+
+  .hero-health {
+    justify-content: center;
   }
 }
 
