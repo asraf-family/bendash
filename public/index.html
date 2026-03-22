@@ -191,43 +191,6 @@
     </div>
   </header>
 
-  <!-- System Health Bar -->
-  <div class="system-health-bar" x-data="{
-    health: null, network: null,
-    async fetchHealth() {
-      try {
-        const [h, n] = await Promise.all([
-          fetch('/api/system/health').then(r => r.ok ? r.json() : null),
-          fetch('/api/network/status').then(r => r.ok ? r.json() : null)
-        ]);
-        this.health = h;
-        this.network = n;
-      } catch(e) { console.error('Health bar error:', e); }
-    },
-    cpuColor(v) { return v > 80 ? 'var(--red)' : v > 60 ? 'var(--yellow)' : 'var(--green)'; },
-    ramColor(used, total) { return (used/total) > 0.8 ? 'var(--red)' : (used/total) > 0.6 ? 'var(--yellow)' : 'var(--green)'; },
-    diskColor(v) { return v > 85 ? 'var(--red)' : v > 70 ? 'var(--yellow)' : 'var(--green)'; }
-  }" x-init="fetchHealth(); setInterval(() => fetchHealth(), 30000)">
-    <template x-if="health">
-      <div class="health-badges">
-        <span class="health-badge">CPU <span :style="'color:' + cpuColor(health.cpu)" x-text="health.cpu + '%'"></span></span>
-        <span class="health-sep">&middot;</span>
-        <span class="health-badge">RAM <span :style="'color:' + ramColor(health.memUsed, health.memTotal)" x-text="health.memUsed + '/' + health.memTotal + ' GB'"></span></span>
-        <span class="health-sep">&middot;</span>
-        <span class="health-badge">Disk <span :style="'color:' + diskColor(health.diskPercent)" x-text="health.diskPercent + '%'"></span></span>
-        <template x-if="network">
-          <span>
-            <span class="health-sep">&middot;</span>
-            <span class="health-badge">WAN <span :style="'color: var(--green)'" x-show="network.internetOnline">✅</span><span style="color: var(--red)" x-show="!network.internetOnline">❌</span></span>
-            <span class="health-sep">&middot;</span>
-            <span class="health-badge"><span x-text="network.deviceCount"></span> devices</span>
-          </span>
-        </template>
-        <span class="health-sep">&middot;</span>
-        <span class="health-badge">Uptime <span x-text="health.uptimeDays + 'd'"></span></span>
-      </div>
-    </template>
-  </div>
 
   <!-- Dashboard Grid -->
   <main class="dashboard-grid" id="dashboard-grid">
@@ -238,67 +201,109 @@
       <p class="empty-state-text">All widgets are hidden. Click <button @click="enterEditMode()" class="empty-state-edit-btn">✏️</button> to edit.</p>
     </div>
 
-    <!-- Weather + Clock -->
-    <section class="card weather-card" data-widget-id="weather" tabindex="0" x-show="editMode || widgetVisible('weather')">
-      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['weather']" @click="toggleCollapse('weather')">
+    <!-- Hero Card — Weather/Clock + Health Bar -->
+    <section class="hero-card" data-widget-id="weather" tabindex="0" x-show="editMode || widgetVisible('weather')" x-data="{
+      health: null, network: null,
+      async fetchHealth() {
+        try {
+          const [h, n] = await Promise.all([
+            fetch('/api/system/health').then(r => r.ok ? r.json() : null),
+            fetch('/api/network/status').then(r => r.ok ? r.json() : null)
+          ]);
+          this.health = h;
+          this.network = n;
+        } catch(e) { console.error('Health bar error:', e); }
+      },
+      cpuColor(v) { return v > 80 ? 'var(--red)' : v > 60 ? 'var(--yellow)' : 'var(--green)'; },
+      ramColor(used, total) { return (used/total) > 0.8 ? 'var(--red)' : (used/total) > 0.6 ? 'var(--yellow)' : 'var(--green)'; },
+      diskColor(v) { return v > 85 ? 'var(--red)' : v > 70 ? 'var(--yellow)' : 'var(--green)'; }
+    }" x-init="fetchHealth(); setInterval(() => fetchHealth(), 30000)">
+      <!-- Edit mode controls -->
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['weather']" @click="toggleCollapse('weather')" x-show="editMode">
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('weather')" :title="widgetVisible('weather') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('weather') ? '👁' : '👁‍🗨'"></span></button>
-        <span class="card-icon">🌤️</span>
-        <h2 class="card-title">Weather & Clock</h2>
+        <h2 class="card-title">Hero Card</h2>
         <span class="update-dot" x-show="weather.lastUpdated" x-effect="if(weather.lastUpdated) { $el.dataset.updatedTs = weather.lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(weather.lastUpdated); const d = (Date.now() - weather.lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
-        <button @click.stop="fetchWeather()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh weather">↻</button>
+        <button @click.stop="fetchWeather(); fetchHealth()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh hero">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['weather'] && 'collapsed'">&#9660;</span>
       </div>
-      <div class="card-body" x-show="!collapsedWidgets['weather']" x-transition.duration.200ms>
-        <div class="clock" x-data="clock()" x-init="startClock()">
-          <div class="greeting-line" x-text="greeting" dir="rtl"></div>
-          <div class="greeting-summary" x-text="summary"></div>
-          <div class="clock-time" x-text="time"></div>
-          <div class="clock-date" x-text="date"></div>
+      <div class="hero-card-body" x-show="!collapsedWidgets['weather']" x-transition.duration.200ms>
+        <!-- Left: Greeting + Clock -->
+        <div class="hero-left" x-data="clock()" x-init="startClock()">
+          <div class="hero-greeting" x-text="greeting" dir="rtl"></div>
+          <div class="hero-summary" x-text="summary"></div>
+          <div class="hero-time" x-text="time"></div>
+          <div class="hero-date" x-text="date"></div>
         </div>
-        <template x-if="weather.loading">
-          <div class="skeleton-group">
-            <div class="skeleton skeleton-lg"></div>
-            <div class="skeleton skeleton-md"></div>
-          </div>
-        </template>
-        <template x-if="!weather.loading && weather.data">
-          <div class="weather-content">
-            <div class="weather-current">
-              <span class="weather-temp" x-text="weather.data.current.temp + '°C'"></span>
-              <span class="weather-icon" x-html="getWeatherSVG(weather.data.current.weatherCode)"></span>
+
+        <!-- Center: Weather -->
+        <div class="hero-center">
+          <template x-if="weather.loading">
+            <div class="skeleton-group">
+              <div class="skeleton skeleton-lg"></div>
+              <div class="skeleton skeleton-md"></div>
             </div>
-            <div class="weather-details">
-              <span>Feels like <span x-text="weather.data.current.feelsLike + '°C'"></span></span>
-              <span>💧 <span x-text="weather.data.current.humidity + '%'"></span></span>
-              <span>💨 <span x-text="weather.data.current.windSpeed + ' km/h'"></span></span>
-              <span class="uv-badge"
-                :class="weather.data.current.uvIndex < 3 ? 'uv-low' : weather.data.current.uvIndex < 6 ? 'uv-moderate' : weather.data.current.uvIndex < 8 ? 'uv-high' : 'uv-veryhigh'"
-                x-text="'UV ' + Math.round(weather.data.current.uvIndex) + ' — ' + (weather.data.current.uvIndex < 3 ? 'Low' : weather.data.current.uvIndex < 6 ? 'Moderate' : weather.data.current.uvIndex < 8 ? 'High' : 'Very High')">
-              </span>
+          </template>
+          <template x-if="!weather.loading && weather.data">
+            <div class="hero-weather-content">
+              <div class="hero-temp">
+                <span class="weather-temp" x-text="weather.data.current.temp + '°C'"></span>
+                <span class="weather-icon" x-html="getWeatherSVG(weather.data.current.weatherCode)"></span>
+              </div>
+              <div class="hero-weather-details">
+                <span>Feels like <span x-text="weather.data.current.feelsLike + '°C'"></span></span>
+                <span>💧 <span x-text="weather.data.current.humidity + '%'"></span></span>
+                <span>💨 <span x-text="weather.data.current.windSpeed + ' km/h'"></span></span>
+                <span class="uv-badge"
+                  :class="weather.data.current.uvIndex < 3 ? 'uv-low' : weather.data.current.uvIndex < 6 ? 'uv-moderate' : weather.data.current.uvIndex < 8 ? 'uv-high' : 'uv-veryhigh'"
+                  x-text="'UV ' + Math.round(weather.data.current.uvIndex) + ' — ' + (weather.data.current.uvIndex < 3 ? 'Low' : weather.data.current.uvIndex < 6 ? 'Moderate' : weather.data.current.uvIndex < 8 ? 'High' : 'Very High')">
+                </span>
+              </div>
+              <div class="hero-forecast">
+                <template x-for="day in weather.data.daily.slice(1, 5)" :key="day.date">
+                  <div class="forecast-day">
+                    <span class="forecast-date" x-text="formatDay(day.date)"></span>
+                    <span class="forecast-icon" x-html="getWeatherSVG(day.weatherCode, 24)"></span>
+                    <span class="forecast-temps">
+                      <span class="temp-max" x-text="Math.round(day.maxTemp) + '°'"></span>
+                      <span class="temp-min" x-text="Math.round(day.minTemp) + '°'"></span>
+                    </span>
+                    <span class="forecast-precip" x-show="day.precipProbability > 0" x-text="day.precipProbability + '%'"></span>
+                  </div>
+                </template>
+              </div>
             </div>
-            <div class="forecast">
-              <template x-for="day in weather.data.daily.slice(1)" :key="day.date">
-                <div class="forecast-day">
-                  <span class="forecast-date" x-text="formatDay(day.date)"></span>
-                  <span class="forecast-icon" x-html="getWeatherSVG(day.weatherCode, 24)"></span>
-                  <span class="forecast-temps">
-                    <span class="temp-max" x-text="Math.round(day.maxTemp) + '°'"></span>
-                    <span class="temp-min" x-text="Math.round(day.minTemp) + '°'"></span>
-                  </span>
-                  <span class="forecast-precip" x-show="day.precipProbability > 0" x-text="day.precipProbability + '%'"></span>
-                </div>
+          </template>
+          <template x-if="!weather.loading && weather.error">
+            <div class="error-state" role="alert">
+              <p x-text="weather.error"></p>
+              <button @click="fetchWeather()" class="retry-btn">Retry</button>
+            </div>
+          </template>
+        </div>
+
+        <!-- Right: Health Pills -->
+        <div class="hero-right">
+          <template x-if="health">
+            <div class="hero-health">
+              <span class="health-pill">CPU <span :style="'color:' + cpuColor(health.cpu)" x-text="health.cpu + '%'"></span></span>
+              <span class="health-pill">RAM <span :style="'color:' + ramColor(health.memUsed, health.memTotal)" x-text="health.memUsed + '/' + health.memTotal + ' GB'"></span></span>
+              <span class="health-pill">Disk <span :style="'color:' + diskColor(health.diskPercent)" x-text="health.diskPercent + '%'"></span></span>
+              <template x-if="network">
+                <span class="health-pill">WAN <span :style="'color: var(--green)'" x-show="network.internetOnline">✅</span><span style="color: var(--red)" x-show="!network.internetOnline">❌</span></span>
               </template>
+              <template x-if="network">
+                <span class="health-pill"><span x-text="network.deviceCount"></span> Devices</span>
+              </template>
+              <span class="health-pill">Uptime <span x-text="health.uptimeDays + 'd'"></span></span>
             </div>
+          </template>
+          <div class="hero-status-summary" x-show="health">
+            <span x-show="health && health.cpu <= 60 && health.diskPercent <= 70" style="color:var(--green)">All systems normal</span>
+            <span x-show="health && (health.cpu > 60 || health.diskPercent > 70)" style="color:var(--yellow)">Check system resources</span>
           </div>
-        </template>
-        <template x-if="!weather.loading && weather.error">
-          <div class="error-state" role="alert">
-            <p x-text="weather.error"></p>
-            <button @click="fetchWeather()" class="retry-btn">Retry</button>
-          </div>
-        </template>
+        </div>
       </div>
     </section>
 
@@ -308,7 +313,7 @@
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('stocks')" :title="widgetVisible('stocks') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('stocks') ? '👁' : '👁‍🗨'"></span></button>
-        <span class="card-icon">📊</span>
+        <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
         <h2 class="card-title">Stocks</h2>
         <span class="update-dot" x-show="stocks.lastUpdated" x-effect="if(stocks.lastUpdated) { $el.dataset.updatedTs = stocks.lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(stocks.lastUpdated); const d = (Date.now() - stocks.lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
         <button @click.stop="fetchStocks()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh stocks">↻</button>
@@ -374,7 +379,7 @@
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('rss')" :title="widgetVisible('rss') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('rss') ? '👁' : '👁‍🗨'"></span></button>
-        <span class="card-icon">📰</span>
+        <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1" fill="currentColor"/></svg></span>
         <h2 class="card-title">Hebits Feed</h2>
         <span class="update-dot" x-show="rss.lastUpdated" x-effect="if(rss.lastUpdated) { $el.dataset.updatedTs = rss.lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(rss.lastUpdated); const d = (Date.now() - rss.lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
         <button @click.stop="fetchRSS()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh RSS">↻</button>
@@ -421,7 +426,7 @@
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('bookmarks')" :title="widgetVisible('bookmarks') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('bookmarks') ? '👁' : '👁‍🗨'"></span></button>
-        <span class="card-icon">🔖</span>
+        <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></span>
         <h2 class="card-title">Bookmarks</h2>
         <button @click.stop="fetchBookmarks()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh bookmarks">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['bookmarks'] && 'collapsed'">&#9660;</span>
@@ -454,7 +459,7 @@
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('services')" :title="widgetVisible('services') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('services') ? '👁' : '👁‍🗨'"></span></button>
-        <span class="card-icon">🖥️</span>
+        <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
         <h2 class="card-title">Services</h2>
         <span class="update-dot" x-show="services.lastUpdated" x-effect="if(services.lastUpdated) { $el.dataset.updatedTs = services.lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(services.lastUpdated); const d = (Date.now() - services.lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
         <button @click.stop="fetchServices()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh services">↻</button>
@@ -560,7 +565,7 @@
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('qbit')" :title="widgetVisible('qbit') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('qbit') ? '👁' : '👁‍🗨'"></span></button>
-        <span class="card-icon">⬇️</span>
+        <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
         <h2 class="card-title">Downloads</h2>
         <span class="update-dot" x-show="lastUpdated" x-effect="if(lastUpdated) { $el.dataset.updatedTs = lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(lastUpdated); const d = (Date.now() - lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
         <button @click.stop="fetchQbit()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh downloads">↻</button>
@@ -658,7 +663,7 @@
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('truenas')" :title="widgetVisible('truenas') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('truenas') ? '👁' : '👁‍🗨'"></span></button>
-        <span class="card-icon">💾</span>
+        <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></span>
         <h2 class="card-title">TrueNAS</h2>
         <span class="update-dot" x-show="lastUpdated" x-effect="if(lastUpdated) { $el.dataset.updatedTs = lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(lastUpdated); const d = (Date.now() - lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
         <button @click.stop="fetchNAS()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh TrueNAS">↻</button>
@@ -720,7 +725,7 @@
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('media')" :title="widgetVisible('media') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('media') ? '👁' : '👁‍🗨'"></span></button>
-        <span class="card-icon">🎬</span>
+        <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/></svg></span>
         <h2 class="card-title">Media Center</h2>
         <span class="update-dot" x-show="lastUpdated" x-effect="if(lastUpdated) { $el.dataset.updatedTs = lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(lastUpdated); const d = (Date.now() - lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
         <button @click.stop="fetchContinue(); fetchRecent(); fetchPlaying(); fetchMediaStats()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh media">↻</button>
@@ -903,7 +908,7 @@
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('alfred-apps')" :title="widgetVisible('alfred-apps') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('alfred-apps') ? '👁' : '👁‍🗨'"></span></button>
-        <span class="card-icon">🤖</span>
+        <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg></span>
         <h2 class="card-title">Alfred Apps</h2>
         <span class="update-dot" x-show="lastUpdated" x-effect="if(lastUpdated) { $el.dataset.updatedTs = lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(lastUpdated); const d = (Date.now() - lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
         <button @click.stop="fetchStatus()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh Alfred Apps">↻</button>
@@ -1007,7 +1012,7 @@
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('calendar')" :title="widgetVisible('calendar') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('calendar') ? '👁' : '👁‍🗨'"></span></button>
-        <span class="card-icon">📅</span>
+        <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
         <h2 class="card-title">Calendar</h2>
         <button @click.stop="fetchCalendar()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh calendar">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['calendar'] && 'collapsed'">&#9660;</span>
@@ -1050,7 +1055,7 @@
         <span class="drag-handle" x-show="editMode">&#x2807;</span>
         <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('fitness')" :title="widgetVisible('fitness') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('fitness') ? '👁' : '👁‍🗨'"></span></button>
-        <span class="card-icon">💪</span>
+        <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg></span>
         <h2 class="card-title">Fitness</h2>
         <span class="update-dot" x-show="lastUpdated" x-effect="if(lastUpdated) { $el.dataset.updatedTs = lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(lastUpdated); const d = (Date.now() - lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
         <button @click.stop="fetchFitness()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh fitness">↻</button>
@@ -1199,7 +1204,7 @@
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('whats-next')" :title="widgetVisible('whats-next') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('whats-next') ? '👁' : '👁‍🗨'"></span></button>
-        <span class="card-icon">🎲</span>
+        <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/></svg></span>
         <h2 class="card-title">What to Watch</h2>
         <button @click.stop="fetchRandom()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh suggestion">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['whats-next'] && 'collapsed'">&#9660;</span>
@@ -1329,7 +1334,7 @@
         <span class="drag-handle" x-show="editMode">&#x2817;</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('frigate')" :title="widgetVisible('frigate') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('frigate') ? '\u{1F441}' : '\u{1F441}\u200D\u{1F5E8}'"></span></button>
-        <span class="card-icon">&#x1F4F7;</span>
+        <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
         <h2 class="card-title">Cameras</h2>
         <span class="update-dot" x-show="lastUpdated" x-effect="if(lastUpdated) { $el.dataset.updatedTs = lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(lastUpdated); const d = (Date.now() - lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
         <button @click.stop="fetchCameras(); fetchEvents()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh cameras">↻</button>
@@ -1490,7 +1495,7 @@
         <span class="drag-handle" x-show="editMode">&#x2817;</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('network-throughput')" :title="widgetVisible('network-throughput') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('network-throughput') ? '\u{1F441}' : '\u{1F441}\u200D\u{1F5E8}'"></span></button>
-        <span class="card-icon">&#x1F310;</span>
+        <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg></span>
         <h2 class="card-title">Network</h2>
         <span class="update-dot" x-show="lastUpdated" x-effect="if(lastUpdated) { $el.dataset.updatedTs = lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(lastUpdated); const d = (Date.now() - lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
         <button @click.stop="fetchThroughput()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh network">↻</button>
@@ -1915,7 +1920,7 @@
         <span class="drag-handle" x-show="editMode">&#x2807;</span>
         <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('notes')" :title="widgetVisible('notes') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('notes') ? '👁' : '👁‍🗨'"></span></button>
-        <span class="card-icon">📝</span>
+        <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
         <h2 class="card-title">Quick Notes</h2>
         <span class="note-saving-indicator" x-show="saving" x-transition>Saving...</span>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['notes'] && 'collapsed'">&#9660;</span>
@@ -2019,7 +2024,7 @@
         <span class="drag-handle" x-show="editMode">&#x2807;</span>
         <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('shopping')" :title="widgetVisible('shopping') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('shopping') ? '👁' : '👁‍🗨'"></span></button>
-        <span class="card-icon">🛒</span>
+        <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
         <h2 class="card-title">Shopping List</h2>
         <span class="shopping-count-badge" x-show="items.length > 0" x-text="uncheckedItems().length"></span>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['shopping'] && 'collapsed'">&#9660;</span>
@@ -2123,11 +2128,7 @@
         <span class="drag-handle" x-show="editMode">&#x2807;</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('speedtest')" :title="widgetVisible('speedtest') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('speedtest') ? '&#x1F441;' : '&#x1F441;&#x200D;&#x1F5E8;'"></span></button>
-        <span class="card-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-          </svg>
-        </span>
+        <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 12l6-6"/><circle cx="12" cy="12" r="2"/></svg></span>
         <h2 class="card-title">Speedtest</h2>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['speedtest'] && 'collapsed'">&#9660;</span>
       </div>
