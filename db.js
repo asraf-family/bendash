@@ -67,10 +67,25 @@ db.exec(`
     seen INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS service_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    service_id INTEGER NOT NULL,
+    online INTEGER NOT NULL,
+    response_time INTEGER,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_service_history_lookup
+    ON service_history (service_id, timestamp);
 `);
 
 // Add visible column to widget_sizes if it doesn't exist yet
 try { db.exec('ALTER TABLE widget_sizes ADD COLUMN visible INTEGER DEFAULT 1'); } catch(e) {}
+
+// Add timeout column to services if it doesn't exist yet
+try { db.exec('ALTER TABLE services ADD COLUMN timeout INTEGER DEFAULT 5000'); } catch(e) {}
 
 // Seed default bookmarks if table is empty
 const count = db.prepare('SELECT COUNT(*) as c FROM bookmarks').get();

@@ -9,8 +9,15 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%230a0a0f'/%3E%3Crect x='60' y='60' width='180' height='180' rx='28' fill='%236c5ce7' opacity='0.9'/%3E%3Crect x='272' y='60' width='180' height='80' rx='28' fill='%236c5ce7' opacity='0.6'/%3E%3Crect x='272' y='168' width='180' height='72' rx='28' fill='%236c5ce7' opacity='0.4'/%3E%3Crect x='60' y='272' width='120' height='180' rx='28' fill='%236c5ce7' opacity='0.5'/%3E%3Crect x='208' y='272' width='244' height='180' rx='28' fill='%236c5ce7' opacity='0.7'/%3E%3C/svg%3E">
   <link rel="manifest" href="/manifest.json">
   <title>BenDash</title>
-  <link rel="stylesheet" href="/style.css">
-  <script src="/lib/sortable.min.js"></script>
+  <link rel="stylesheet" href="/style.css?v=2026032201">
+  <script defer src="/lib/sortable.min.js?v=2026032201"></script>
+  <script>
+    // Apply theme before render to prevent flash
+    (function() {
+      var t = localStorage.getItem('bendash-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <script>
     function timeAgo(dateStr) {
       if (!dateStr) return '';
@@ -23,9 +30,12 @@
       return Math.floor(diff / 86400) + 'd ago';
     }
   </script>
-  <script defer src="/lib/alpine.min.js"></script>
+  <script defer src="/lib/alpine.min.js?v=2026032201"></script>
 </head>
 <body x-data="dashboard()" x-init="init(); applyBackground(); setInterval(() => applyBackground(), 3600000)" :class="editMode && 'edit-mode-active'" :style="bgGradient">
+
+  <!-- Skip to content link for keyboard users -->
+  <a href="#dashboard-grid" class="skip-link">Skip to dashboard</a>
 
   <!-- Edit Mode Banner -->
   <div class="edit-banner" x-show="editMode" x-transition style="display:none;">
@@ -51,28 +61,55 @@
         <img src="/icon.svg" alt="BenDash" class="header-logo-icon">
         <span class="header-logo-text">BenDash</span>
       </a>
-      <div class="search-bar">
-        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-        </svg>
-        <form :action="searchEngine === 'google' ? 'https://www.google.com/search' : 'https://gemini.google.com/app'" method="GET" target="_blank" class="search-form" @submit="handleSearch($event)">
-          <input
-            type="text"
-            :name="searchEngine === 'google' ? 'q' : ''"
-            x-ref="searchInput"
-            placeholder="Search the web..."
-            class="search-input"
-            @keydown.slash.window.prevent="$refs.searchInput.focus()"
-            @keydown.ctrl.k.window.prevent="$refs.searchInput.focus()"
-          >
-        </form>
-        <button @click="toggleSearchEngine()" class="engine-toggle" :title="'Search with ' + searchEngine">
-          <span x-show="searchEngine === 'google'" class="engine-label">G</span>
-          <span x-show="searchEngine === 'gemini'" class="engine-label gemini">✦</span>
-        </button>
+      <div class="search-bar-wrapper">
+        <div class="search-bar">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+          </svg>
+          <form :action="searchEngine === 'google' ? 'https://www.google.com/search' : 'https://gemini.google.com/app'" method="GET" target="_blank" class="search-form" @submit="handleSearch($event)">
+            <input
+              type="text"
+              :name="searchEngine === 'google' ? 'q' : ''"
+              x-ref="searchInput"
+              x-model="searchQuery"
+              :placeholder="searchQuery.startsWith('/') ? 'Search bookmarks, services, stocks...' : 'Search the web...'"
+              class="search-input"
+              @keydown.slash.window.prevent="$refs.searchInput.focus()"
+              @keydown.ctrl.k.window.prevent="$refs.searchInput.focus()"
+              @input="onSearchInput()"
+              @keydown.escape="internalSearchResults = []; searchQuery = ''"
+              @keydown.arrow-down.prevent="navigateSearchResults(1)"
+              @keydown.arrow-up.prevent="navigateSearchResults(-1)"
+              @keydown.enter="handleSearchEnter($event)"
+              autocomplete="off"
+            >
+          </form>
+          <button @click="toggleSearchEngine()" class="engine-toggle" :title="'Search with ' + searchEngine">
+            <span x-show="searchEngine === 'google'" class="engine-label">G</span>
+            <span x-show="searchEngine === 'gemini'" class="engine-label gemini">✦</span>
+          </button>
+        </div>
+        <!-- Internal Search Dropdown -->
+        <div class="internal-search-dropdown" x-show="internalSearchResults.length > 0 && searchQuery.startsWith('/')" x-transition.opacity @click.away="internalSearchResults = []" style="display:none;">
+          <template x-for="(result, idx) in internalSearchResults" :key="result.type + '-' + result.id">
+            <a :href="result.url" :target="result.type === 'stock' ? '_blank' : '_self'"
+               class="search-result-item"
+               :class="{ 'search-result-active': idx === searchResultIndex }"
+               @click="internalSearchResults = []; searchQuery = ''"
+               @mouseenter="searchResultIndex = idx">
+              <span class="search-result-type" :class="'search-type-' + result.type" x-text="result.type"></span>
+              <span class="search-result-icon" x-html="result.icon && result.type === 'bookmark' ? '<img src=&quot;' + result.icon + '&quot; width=16 height=16 style=&quot;border-radius:3px&quot;>' : (result.icon || '')"></span>
+              <span class="search-result-name" x-text="result.name"></span>
+              <span class="search-result-url" x-text="result.url" x-show="result.type !== 'stock'"></span>
+            </a>
+          </template>
+        </div>
       </div>
       <button @click="enterEditMode()" class="edit-toggle-btn" title="Edit Mode" x-show="!editMode">
         <span>✏️</span>
+      </button>
+      <button @click="showSettingsModal = true; loadSettings()" class="settings-toggle-btn" title="Settings" aria-label="Settings" x-show="!editMode">
+        <span>⚙️</span>
       </button>
       <!-- Alerts Bell -->
       <div class="alerts-wrapper" x-data="{
@@ -103,14 +140,14 @@
           if (this.open && this.unseenCount > 0) this.markAllSeen();
         }
       }" x-init="fetchAlerts(); setInterval(() => fetchAlerts(), 30000)" @click.away="open = false">
-        <button @click="toggle()" class="alerts-bell-btn" title="Alerts">
+        <button @click="toggle()" class="alerts-bell-btn" :aria-expanded="open" title="Alerts" aria-label="Notifications">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
           </svg>
-          <span class="alerts-badge" x-show="unseenCount > 0" x-text="unseenCount" x-transition></span>
+          <span class="alerts-badge" role="status" x-show="unseenCount > 0" x-text="unseenCount" x-transition></span>
         </button>
-        <div class="alerts-dropdown" x-show="open" x-transition.opacity style="display:none;">
+        <div class="alerts-dropdown" aria-live="polite" x-show="open" x-transition.opacity style="display:none;">
           <div class="alerts-dropdown-header">
             <span class="alerts-dropdown-title">Notifications</span>
             <button @click="markAllSeen()" class="alerts-mark-all" x-show="alerts.some(a => !a.seen)">Mark all read</button>
@@ -128,7 +165,7 @@
                   <div class="alerts-item-message" x-text="alert.message"></div>
                   <div class="alerts-item-time" x-text="timeAgo(alert.created_at)"></div>
                 </div>
-                <button @click.stop="dismissAlert(alert.id)" class="alerts-item-dismiss" title="Dismiss">&times;</button>
+                <button @click.stop="dismissAlert(alert.id)" class="alerts-item-dismiss" title="Dismiss" aria-label="Dismiss notification">&times;</button>
               </div>
             </template>
           </div>
@@ -176,18 +213,19 @@
   </div>
 
   <!-- Dashboard Grid -->
-  <main class="dashboard-grid">
+  <main class="dashboard-grid" id="dashboard-grid">
 
     <!-- Weather + Clock -->
-    <section class="card weather-card" data-widget-id="weather" x-show="editMode || widgetVisible('weather')">
-      <div class="card-header">
+    <section class="card weather-card" data-widget-id="weather" tabindex="0" x-show="editMode || widgetVisible('weather')">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['weather']" @click="toggleCollapse('weather')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
-        <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('weather')" :title="widgetVisible('weather') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('weather') ? '👁' : '👁‍🗨'"></span></button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('weather')" :title="widgetVisible('weather') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('weather') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">🌤️</span>
         <h2 class="card-title">Weather & Clock</h2>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['weather'] && 'collapsed'">&#9660;</span>
       </div>
-      <div class="card-body">
+      <div class="card-body" x-show="!collapsedWidgets['weather']" x-transition.duration.200ms>
         <div class="clock" x-data="clock()" x-init="startClock()">
           <div class="greeting-line" x-text="greeting" dir="rtl"></div>
           <div class="greeting-summary" x-text="summary"></div>
@@ -226,7 +264,7 @@
           </div>
         </template>
         <template x-if="!weather.loading && weather.error">
-          <div class="error-state">
+          <div class="error-state" role="alert">
             <p x-text="weather.error"></p>
             <button @click="fetchWeather()" class="retry-btn">Retry</button>
           </div>
@@ -236,17 +274,18 @@
     </section>
 
     <!-- Stocks -->
-    <section class="card stocks-card" data-widget-id="stocks" x-show="editMode || widgetVisible('stocks')">
-      <div class="card-header">
+    <section class="card stocks-card" data-widget-id="stocks" tabindex="0" x-show="editMode || widgetVisible('stocks')">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['stocks']" @click="toggleCollapse('stocks')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
-        <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('stocks')" :title="widgetVisible('stocks') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('stocks') ? '👁' : '👁‍🗨'"></span></button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('stocks')" :title="widgetVisible('stocks') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('stocks') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">📊</span>
         <h2 class="card-title">Stocks</h2>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['stocks'] && 'collapsed'">&#9660;</span>
         <span class="market-badge closed" x-show="!stocks.usMarketOpen" x-cloak>Market Closed</span>
         <button @click="showStockModal = true" class="card-action-btn" title="Add stock" x-show="editMode">+</button>
       </div>
-      <div class="card-body">
+      <div class="card-body" x-show="!collapsedWidgets['stocks']" x-transition.duration.200ms>
         <template x-if="stocks.loading">
           <div class="skeleton-group">
             <template x-for="i in 4" :key="i"><div class="skeleton skeleton-sm"></div></template>
@@ -285,15 +324,16 @@
     </section>
 
     <!-- RSS Feed -->
-    <section class="card rss-card" data-widget-id="rss" x-show="editMode || widgetVisible('rss')">
-      <div class="card-header">
+    <section class="card rss-card" data-widget-id="rss" tabindex="0" x-show="editMode || widgetVisible('rss')">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['rss']" @click="toggleCollapse('rss')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
-        <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('rss')" :title="widgetVisible('rss') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('rss') ? '👁' : '👁‍🗨'"></span></button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('rss')" :title="widgetVisible('rss') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('rss') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">📰</span>
         <h2 class="card-title">Hebits Feed</h2>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['rss'] && 'collapsed'">&#9660;</span>
       </div>
-      <div class="card-body rss-body">
+      <div class="card-body rss-body" x-show="!collapsedWidgets['rss']" x-transition.duration.200ms>
         <template x-if="rss.loading">
           <div class="skeleton-group">
             <template x-for="i in 5" :key="i"><div class="skeleton skeleton-md"></div></template>
@@ -320,7 +360,7 @@
           </div>
         </template>
         <template x-if="!rss.loading && rss.error">
-          <div class="error-state">
+          <div class="error-state" role="alert">
             <p x-text="rss.error"></p>
             <button @click="fetchRSS()" class="retry-btn">Retry</button>
           </div>
@@ -330,16 +370,17 @@
     </section>
 
     <!-- Bookmarks -->
-    <section class="card bookmarks-card" data-widget-id="bookmarks" x-show="editMode || widgetVisible('bookmarks')">
-      <div class="card-header">
+    <section class="card bookmarks-card" data-widget-id="bookmarks" tabindex="0" x-show="editMode || widgetVisible('bookmarks')">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['bookmarks']" @click="toggleCollapse('bookmarks')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
-        <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('bookmarks')" :title="widgetVisible('bookmarks') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('bookmarks') ? '👁' : '👁‍🗨'"></span></button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('bookmarks')" :title="widgetVisible('bookmarks') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('bookmarks') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">🔖</span>
         <h2 class="card-title">Bookmarks</h2>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['bookmarks'] && 'collapsed'">&#9660;</span>
         <button @click="showBookmarkModal = true" class="card-action-btn" title="Add bookmark" x-show="editMode">+</button>
       </div>
-      <div class="card-body">
+      <div class="card-body" x-show="!collapsedWidgets['bookmarks']" x-transition.duration.200ms>
         <template x-if="bookmarks.loading">
           <div class="skeleton-group skeleton-grid">
             <template x-for="i in 6" :key="i"><div class="skeleton skeleton-square"></div></template>
@@ -349,7 +390,7 @@
           <div class="bookmarks-grid" x-ref="bookmarksGrid">
             <template x-for="bm in bookmarks.data" :key="bm.id">
               <a :href="editMode ? 'javascript:void(0)' : bm.url" :target="editMode ? '' : '_blank'" rel="noopener" class="bookmark-item" :data-id="bm.id">
-                <img :src="bm.icon" :alt="bm.name" class="bookmark-icon" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                <img loading="lazy" :src="bm.icon" :alt="bm.name" class="bookmark-icon" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
                 <div class="bookmark-icon bookmark-fallback" style="display:none; align-items:center; justify-content:center; background:#6c5ce7; color:white; font-size:1.5rem; font-weight:bold; border-radius:12px;" x-text="bm.name?.charAt(0)?.toUpperCase()"></div>
                 <span class="bookmark-name" x-text="bm.name"></span>
                 <button x-show="editMode" @click.prevent.stop="deleteBookmark(bm.id)" class="bookmark-delete" title="Remove">×</button>
@@ -361,20 +402,21 @@
     </section>
 
     <!-- Services -->
-    <section class="card services-card" data-widget-id="services" x-show="editMode || widgetVisible('services')">
-      <div class="card-header">
+    <section class="card services-card" data-widget-id="services" tabindex="0" x-show="editMode || widgetVisible('services')">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['services']" @click="toggleCollapse('services')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
-        <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('services')" :title="widgetVisible('services') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('services') ? '👁' : '👁‍🗨'"></span></button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('services')" :title="widgetVisible('services') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('services') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">🖥️</span>
         <h2 class="card-title">Services</h2>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['services'] && 'collapsed'">&#9660;</span>
         <button @click="showServiceModal = true" class="card-action-btn" title="Add service" x-show="editMode">+</button>
         <span class="services-count" x-show="!services.loading">
           <span class="dot dot-green"></span>
           <span x-text="services.data.filter(s => s.online).length + '/' + services.data.length"></span>
         </span>
       </div>
-      <div class="card-body">
+      <div class="card-body" x-show="!collapsedWidgets['services']" x-transition.duration.200ms>
         <template x-if="services.loading">
           <div class="skeleton-group skeleton-grid">
             <template x-for="i in 6" :key="i"><div class="skeleton skeleton-square"></div></template>
@@ -384,15 +426,28 @@
           <div class="services-grid" x-ref="servicesGrid">
             <template x-for="svc in services.data" :key="svc.id || svc.name">
               <a :href="editMode ? 'javascript:void(0)' : svc.url" :target="editMode ? '' : '_blank'" rel="noopener" class="service-item" :data-id="svc.id">
-                <span class="service-icon" x-text="svc.icon"></span>
-                <span class="service-name" x-text="svc.name"></span>
-                <template x-if="editMode">
-                  <button @click.prevent.stop="deleteService(svc.id)" class="service-delete" title="Remove">×</button>
-                </template>
-                <template x-if="!editMode">
-                  <span class="dot" :class="svc.online ? 'dot-green' : 'dot-red'"></span>
-                </template>
-                <span class="response-time" x-show="svc.responseTimeMs" x-text="svc.responseTimeMs + 'ms'"></span>
+                <div class="service-item-top">
+                  <span class="service-icon" x-text="svc.icon"></span>
+                  <span class="service-name" x-text="svc.name"></span>
+                  <template x-if="editMode">
+                    <button @click.prevent.stop="deleteService(svc.id)" class="service-delete" title="Remove">×</button>
+                  </template>
+                  <template x-if="!editMode">
+                    <span class="dot" :class="svc.online ? 'dot-green' : 'dot-red'"></span>
+                  </template>
+                </div>
+                <div class="service-item-meta">
+                  <span class="response-time" x-show="svc.responseTimeMs" x-text="svc.responseTimeMs + 'ms'"></span>
+                  <span class="uptime-badge"
+                        x-show="svc.uptimePercent !== null && svc.uptimePercent !== undefined"
+                        :class="svc.uptimePercent >= 99 ? 'uptime-good' : svc.uptimePercent >= 90 ? 'uptime-warn' : 'uptime-bad'"
+                        x-text="svc.uptimePercent + '%'"></span>
+                </div>
+                <div class="service-timeline" x-show="svc.history && svc.history.length > 0">
+                  <template x-for="(seg, i) in (svc.history || [])" :key="i">
+                    <div class="timeline-segment" :class="seg.online ? 'seg-up' : 'seg-down'" :title="seg.timestamp"></div>
+                  </template>
+                </div>
               </a>
             </template>
           </div>
@@ -402,8 +457,10 @@
     </section>
 
     <!-- qBittorrent -->
-    <section class="card qbit-card" data-widget-id="qbit" x-show="editMode || widgetVisible('qbit')" x-data="{
+    <section class="card qbit-card" data-widget-id="qbit" tabindex="0" x-show="editMode || widgetVisible('qbit')" x-data="{
       qbit: { loading: true, data: null },
+      torrents: [],
+      showTorrents: false,
       lastUpdated: null,
       async fetchQbit() {
         try {
@@ -412,16 +469,40 @@
           this.lastUpdated = Date.now();
         } catch(e) { console.error('qbit error:', e); }
         this.qbit.loading = false;
+      },
+      async fetchTorrents() {
+        try {
+          const r = await fetch('/api/qbit/torrents');
+          const data = await r.json();
+          this.torrents = data.torrents || [];
+        } catch(e) { console.error('qbit torrents error:', e); }
+      },
+      toggleTorrents() {
+        this.showTorrents = !this.showTorrents;
+        if (this.showTorrents) this.fetchTorrents();
+      },
+      async torrentAction(hash, action) {
+        try {
+          await fetch('/api/qbit/torrents/' + hash + '/' + action, { method: 'POST' });
+          setTimeout(() => this.fetchTorrents(), 1000);
+        } catch(e) { console.error('qbit action error:', e); }
+      },
+      isPaused(state) {
+        return state === 'pausedDL' || state === 'pausedUP';
+      },
+      truncName(name, len) {
+        return name && name.length > len ? name.substring(0, len) + '...' : name;
       }
     }" x-init="fetchQbit(); setInterval(() => fetchQbit(), 30000)">
-      <div class="card-header">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['qbit']" @click="toggleCollapse('qbit')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
-        <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('qbit')" :title="widgetVisible('qbit') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('qbit') ? '👁' : '👁‍🗨'"></span></button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('qbit')" :title="widgetVisible('qbit') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('qbit') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">⬇️</span>
         <h2 class="card-title">Downloads</h2>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['qbit'] && 'collapsed'">&#9660;</span>
       </div>
-      <div class="card-body">
+      <div class="card-body" x-show="!collapsedWidgets['qbit']" x-transition.duration.200ms>
         <template x-if="qbit.loading">
           <div class="skeleton-group">
             <div class="skeleton skeleton-md"></div>
@@ -438,6 +519,8 @@
               <span class="qbit-idle-sep">&middot;</span>
               <span>⬇ <span x-text="qbit.data.totalDownloaded"></span></span>
               <span>⬆ <span x-text="qbit.data.totalUploaded"></span></span>
+              <span class="qbit-idle-sep">&middot;</span>
+              <span>Ratio: <span x-text="qbit.data.ratio"></span></span>
             </div>
             <!-- Expanded active view -->
             <div class="qbit-content" x-show="qbit.data.downloadSpeed !== '0 B/s' || qbit.data.downloading > 0">
@@ -459,19 +542,41 @@
               <div class="qbit-totals">
                 <span>⬇ <span x-text="qbit.data.totalDownloaded"></span></span>
                 <span>⬆ <span x-text="qbit.data.totalUploaded"></span></span>
+                <span>Ratio: <span x-text="qbit.data.ratio"></span></span>
               </div>
+            </div>
+            <!-- Toggle Torrents Button -->
+            <button class="qbit-toggle-btn" @click="toggleTorrents()" x-text="showTorrents ? 'Hide Torrents' : 'Show Torrents'"></button>
+            <!-- Torrent List -->
+            <div class="qbit-torrent-list" x-show="showTorrents" x-transition.duration.200ms>
+              <template x-for="t in torrents" :key="t.hash">
+                <div class="qbit-torrent-row">
+                  <div class="qbit-torrent-name" x-text="truncName(t.name, 45)" :title="t.name"></div>
+                  <div class="qbit-progress-bar">
+                    <div class="qbit-progress-fill" :style="'width: ' + t.progress + '%'"></div>
+                  </div>
+                  <div class="qbit-torrent-meta">
+                    <span>↓ <span x-text="t.dlspeed"></span></span>
+                    <span>↑ <span x-text="t.upspeed"></span></span>
+                    <span>Ratio: <span x-text="t.ratio"></span></span>
+                    <span x-text="t.progress + '%'"></span>
+                    <button class="qbit-action-btn" @click="torrentAction(t.hash, isPaused(t.state) ? 'resume' : 'pause')" x-text="isPaused(t.state) ? '▶' : '⏸'"></button>
+                  </div>
+                </div>
+              </template>
+              <div x-show="torrents.length === 0" style="text-align:center; opacity:0.5; padding:0.5rem;">No torrents</div>
             </div>
           </div>
         </template>
         <template x-if="!qbit.loading && qbit.data && !qbit.data.connected">
-          <div class="error-state"><p>qBittorrent offline</p></div>
+          <div class="error-state" role="alert"><p>qBittorrent offline</p></div>
         </template>
       <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)"></div>
       </div>
     </section>
 
     <!-- TrueNAS -->
-    <section class="card truenas-card" data-widget-id="truenas" x-show="editMode || widgetVisible('truenas')" x-data="{
+    <section class="card truenas-card" data-widget-id="truenas" tabindex="0" x-show="editMode || widgetVisible('truenas')" x-data="{
       nas: { loading: true, data: null, error: null },
       lastUpdated: null,
       async fetchNAS() {
@@ -485,14 +590,15 @@
         this.nas.loading = false;
       }
     }" x-init="fetchNAS(); setInterval(() => fetchNAS(), 60000)">
-      <div class="card-header">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['truenas']" @click="toggleCollapse('truenas')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
-        <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('truenas')" :title="widgetVisible('truenas') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('truenas') ? '👁' : '👁‍🗨'"></span></button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('truenas')" :title="widgetVisible('truenas') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('truenas') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">💾</span>
         <h2 class="card-title">TrueNAS</h2>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['truenas'] && 'collapsed'">&#9660;</span>
       </div>
-      <div class="card-body">
+      <div class="card-body" x-show="!collapsedWidgets['truenas']" x-transition.duration.200ms>
         <template x-if="nas.loading">
           <div class="skeleton-group">
             <div class="skeleton skeleton-md"></div>
@@ -509,11 +615,16 @@
                     <span class="truenas-pool-name" x-text="pool.name"></span>
                     <span class="truenas-badge" :class="pool.status === 'ONLINE' ? 'badge-green' : 'badge-red'" x-text="pool.status"></span>
                   </div>
-                  <div class="truenas-bar-wrap">
-                    <div class="truenas-bar">
-                      <div class="truenas-bar-fill" :style="'width:' + pool.usedPercent + '%'" :class="pool.usedPercent > 85 ? 'bar-red' : pool.usedPercent > 70 ? 'bar-yellow' : ''"></div>
-                    </div>
-                    <span class="truenas-percent" x-text="pool.usedPercent + '%'"></span>
+                  <div class="truenas-donut-wrap">
+                    <svg class="truenas-donut" viewBox="0 0 120 120">
+                      <circle class="truenas-donut-bg" cx="60" cy="60" r="50" />
+                      <circle class="truenas-donut-fill" cx="60" cy="60" r="50"
+                        :stroke="pool.usedPercent > 80 ? 'var(--red)' : pool.usedPercent > 60 ? 'var(--yellow)' : 'var(--green)'"
+                        :stroke-dasharray="(pool.usedPercent / 100 * 314.16) + ' 314.16'"
+                        stroke-dashoffset="0"
+                      />
+                      <text class="truenas-donut-text" x="60" y="60" dominant-baseline="central" text-anchor="middle" x-text="pool.usedPercent + '%'"></text>
+                    </svg>
                   </div>
                 </div>
               </template>
@@ -532,20 +643,21 @@
           </div>
         </template>
         <template x-if="!nas.loading && nas.error">
-          <div class="error-state"><p x-text="nas.error"></p></div>
+          <div class="error-state" role="alert"><p x-text="nas.error"></p></div>
         </template>
       <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)"></div>
       </div>
     </section>
 
     <!-- Media Center -->
-    <section class="card media-card" data-widget-id="media" x-show="editMode || widgetVisible('media')" x-data="mediaCenter()" x-init="init()">
-      <div class="card-header">
+    <section class="card media-card" data-widget-id="media" tabindex="0" x-show="editMode || widgetVisible('media')" x-data="mediaCenter()" x-init="init()">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['media']" @click="toggleCollapse('media')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
-        <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('media')" :title="widgetVisible('media') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('media') ? '👁' : '👁‍🗨'"></span></button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('media')" :title="widgetVisible('media') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('media') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">🎬</span>
         <h2 class="card-title">Media Center</h2>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['media'] && 'collapsed'">&#9660;</span>
         <span class="media-stats-row" x-show="mediaStats" x-text="mediaStats"></span>
         <div class="media-tabs">
           <button class="media-tab" :class="tab === 'continue' && 'active'" @click="tab = 'continue'">Continue</button>
@@ -556,7 +668,7 @@
           </button>
         </div>
       </div>
-      <div class="card-body">
+      <div class="card-body" x-show="!collapsedWidgets['media']" x-transition.duration.200ms>
 
         <!-- Continue Watching -->
         <div x-show="tab === 'continue'">
@@ -571,13 +683,15 @@
           <template x-if="!continueW.loading && continueW.data.length > 0">
             <div class="media-scroll">
               <template x-for="item in continueW.data.slice(0, 8)" :key="item.id">
+                <a :href="item.deepLink" target="_blank" rel="noopener" class="media-poster-link">
                 <div class="media-poster-card">
                   <div class="media-poster-img-wrap">
-                    <img :src="item.imagePrimary || ''" alt="" class="media-poster-img" onerror="this.parentElement.classList.add('no-img')">
+                    <img loading="lazy" :src="item.imagePrimary || ''" alt="" class="media-poster-img" onerror="this.parentElement.classList.add('no-img')">
                     <div class="media-poster-no-img" x-text="item.name?.charAt(0) || '?'"></div>
                     <div class="media-poster-overlay">
                       <span x-text="item.seriesName || item.name"></span>
                     </div>
+                    <button class="fullscreen-btn" @click.stop="window.dispatchEvent(new CustomEvent('open-fullscreen', {detail: {src: item.imagePrimary, type: 'image'}}))" x-show="item.imagePrimary" title="Fullscreen">&#x26F6;</button>
                   </div>
                   <div class="media-progress-bar">
                     <div class="media-progress-fill" :style="'width:' + item.progressPercent + '%'"></div>
@@ -585,6 +699,7 @@
                   <div class="media-poster-title" x-text="item.seriesName || item.name"></div>
                   <div class="media-poster-sub" x-show="item.episodeTitle" x-text="item.episodeTitle"></div>
                 </div>
+              </a>
               </template>
             </div>
           </template>
@@ -603,24 +718,27 @@
           <template x-if="!recent.loading && recent.data.length > 0">
             <div class="media-scroll">
               <template x-for="item in recent.data.slice(0, 10)" :key="item.id">
+                <a :href="item.deepLink" target="_blank" rel="noopener" class="media-poster-link">
                 <div class="media-poster-card">
                   <div class="media-poster-img-wrap">
-                    <img :src="item.imagePrimary || ''" alt="" class="media-poster-img" onerror="this.parentElement.classList.add('no-img')">
+                    <img loading="lazy" :src="item.imagePrimary || ''" alt="" class="media-poster-img" onerror="this.parentElement.classList.add('no-img')">
                     <div class="media-poster-no-img" x-text="item.name?.charAt(0) || '?'"></div>
                     <div class="media-poster-overlay">
                       <span x-text="item.name"></span>
                     </div>
+                    <button class="fullscreen-btn" @click.stop="window.dispatchEvent(new CustomEvent('open-fullscreen', {detail: {src: item.imagePrimary, type: 'image'}}))" x-show="item.imagePrimary" title="Fullscreen">&#x26F6;</button>
                   </div>
                   <div class="media-poster-title" x-text="item.name"></div>
                   <div class="media-poster-sub" x-text="item.dateCreated ? timeAgo(item.dateCreated) : ''"></div>
                 </div>
+              </a>
               </template>
             </div>
           </template>
         </div>
 
         <!-- Now Playing -->
-        <div x-show="tab === 'playing'">
+        <div x-show="tab === 'playing'" aria-live="polite">
           <template x-if="playing.loading">
             <div class="skeleton-group">
               <template x-for="i in 2" :key="i"><div class="skeleton skeleton-md"></div></template>
@@ -634,7 +752,7 @@
               <template x-for="(s, i) in playing.data" :key="i">
                 <div class="media-playing-item">
                   <template x-if="s.posterId">
-                    <img :src="'/api/media/poster/' + s.posterId" class="media-playing-poster" onerror="this.style.display='none'">
+                    <img loading="lazy" :src="'/api/media/poster/' + s.posterId" class="media-playing-poster" onerror="this.style.display='none'">
                   </template>
                   <template x-if="!s.posterId">
                     <div class="media-playing-avatar" x-text="s.user?.charAt(0) || '?'"></div>
@@ -681,26 +799,27 @@
     </section>
 
     <!-- Alfred Apps -->
-    <section class="card alfred-apps-card" data-widget-id="alfred-apps" x-show="editMode || widgetVisible('alfred-apps')" x-data="alfredApps()" x-init="init()">
-      <div class="card-header">
+    <section class="card alfred-apps-card" data-widget-id="alfred-apps" tabindex="0" x-show="editMode || widgetVisible('alfred-apps')" x-data="alfredApps()" x-init="init()">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['alfred-apps']" @click="toggleCollapse('alfred-apps')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
-        <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('alfred-apps')" :title="widgetVisible('alfred-apps') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('alfred-apps') ? '👁' : '👁‍🗨'"></span></button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('alfred-apps')" :title="widgetVisible('alfred-apps') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('alfred-apps') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">🤖</span>
         <h2 class="card-title">Alfred Apps</h2>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['alfred-apps'] && 'collapsed'">&#9660;</span>
         <span class="services-count" x-show="!loading">
           <span class="dot dot-green"></span>
           <span x-text="apps.filter(a => a.status === 'up').length + '/' + apps.length"></span>
         </span>
       </div>
-      <div class="card-body">
+      <div class="card-body" x-show="!collapsedWidgets['alfred-apps']" x-transition.duration.200ms>
         <template x-if="loading">
           <div class="skeleton-group">
             <template x-for="i in 4" :key="i"><div class="skeleton skeleton-sm"></div></template>
           </div>
         </template>
         <template x-if="!loading && error">
-          <div class="error-state">
+          <div class="error-state" role="alert">
             <p x-text="error"></p>
             <button @click="fetchStatus()" class="retry-btn">Retry</button>
           </div>
@@ -711,7 +830,7 @@
               <div class="alfred-app-row">
                 <span class="dot" :class="app.status === 'up' ? 'dot-green' : 'dot-red'"></span>
                 <template x-if="app.status === 'up'">
-                  <a :href="'http://192.168.0.139:' + app.port" target="_blank" rel="noopener" class="alfred-app-name alfred-app-link" x-text="app.name"></a>
+                  <a :href="'http://' + host + ':' + app.port" target="_blank" rel="noopener" class="alfred-app-name alfred-app-link" x-text="app.name"></a>
                 </template>
                 <template x-if="app.status !== 'up'">
                   <span class="alfred-app-name" x-text="app.name"></span>
@@ -726,6 +845,13 @@
                   x-text="app.status === 'up' ? '⏹' : '▶'"
                   :title="app.status === 'up' ? 'Stop' : 'Start'"
                 ></button>
+                <button
+                  class="alfred-app-btn btn-restart"
+                  x-show="app.status === 'up'"
+                  :disabled="app._busy"
+                  @click="restart(app)"
+                  title="Restart"
+                >🔄</button>
               </div>
             </template>
           </div>
@@ -735,7 +861,7 @@
     </section>
 
     <!-- Calendar -->
-    <section class="card calendar-card" data-widget-id="calendar" x-show="editMode || widgetVisible('calendar')" x-data="{
+    <section class="card calendar-card" data-widget-id="calendar" tabindex="0" x-show="editMode || widgetVisible('calendar')" x-data="{
       events: [], loading: true,
       async fetchCalendar() {
         try {
@@ -744,19 +870,37 @@
         } catch(e) { console.error('Calendar error:', e); }
         this.loading = false;
       },
-      todayEvents() {
-        const today = new Date().toISOString().slice(0, 10);
-        return this.events.filter(e => e.start && e.start.slice(0, 10) === today);
+      groupedDays() {
+        const groups = {};
+        for (const e of this.events) {
+          if (!e.start) continue;
+          const dateKey = e.start.slice(0, 10);
+          if (!groups[dateKey]) groups[dateKey] = [];
+          groups[dateKey].push(e);
+        }
+        return Object.keys(groups).sort().map(dateKey => ({
+          dateKey,
+          label: this.dayLabel(dateKey),
+          events: groups[dateKey]
+        }));
       },
-      tomorrowEvents() {
-        const d = new Date(); d.setDate(d.getDate() + 1);
-        const tmr = d.toISOString().slice(0, 10);
-        return this.events.filter(e => e.start && e.start.slice(0, 10) === tmr);
+      dayLabel(dateKey) {
+        const today = new Date(); today.setHours(0,0,0,0);
+        const target = new Date(dateKey + 'T00:00:00');
+        const diff = Math.round((target - today) / 86400000);
+        if (diff === 0) return 'Today';
+        if (diff === 1) return 'Tomorrow';
+        return target.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
       },
       fmtTime(s) {
         if (!s) return '';
         const d = new Date(s);
         return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
+      },
+      calSearchUrl(ev) {
+        const dateStr = ev.start ? ev.start.slice(0, 10) : '';
+        const q = encodeURIComponent(ev.title + ' ' + dateStr);
+        return 'https://calendar.google.com/calendar/r/search?q=' + q;
       }
     }" x-init="fetchCalendar(); setInterval(() => fetchCalendar(), 300000)">
       <div class="card-header">
@@ -776,27 +920,27 @@
         </template>
         <template x-if="!loading">
           <div class="calendar-content">
-            <div class="cal-section" x-show="todayEvents().length > 0">
-              <div class="cal-section-title">Today</div>
-              <template x-for="ev in todayEvents()" :key="ev.title + ev.start">
-                <div class="cal-event">
-                  <span class="cal-dot" :style="'background:' + (ev.color || 'var(--accent)')"></span>
-                  <span class="cal-time" x-text="ev.allDay ? 'All day' : fmtTime(ev.start)"></span>
-                  <span class="cal-title" x-text="ev.title"></span>
-                </div>
-              </template>
+            <template x-for="day in groupedDays()" :key="day.dateKey">
+              <div class="cal-section">
+                <div class="cal-section-title" x-text="day.label"></div>
+                <template x-for="ev in day.events" :key="ev.title + ev.start">
+                  <a :href="calSearchUrl(ev)" target="_blank" rel="noopener" class="cal-event-link">
+                    <div class="cal-event">
+                      <span class="cal-dot" :style="'background:' + (ev.color || 'var(--accent)')"></span>
+                      <span class="cal-time" x-text="ev.allDay ? 'All day' : fmtTime(ev.start)"></span>
+                      <span class="cal-title" x-text="ev.title"></span>
+                    </div>
+                  </a>
+                </template>
+              </div>
+            </template>
+            <div class="cal-empty" x-show="groupedDays().length === 0">
+              No upcoming events
             </div>
-            <div class="cal-section" x-show="tomorrowEvents().length > 0">
-              <div class="cal-section-title">Tomorrow</div>
-              <template x-for="ev in tomorrowEvents()" :key="ev.title + ev.start">
-                <div class="cal-event">
-                  <span class="cal-dot" :style="'background:' + (ev.color || 'var(--accent)')"></span>
-                  <span class="cal-time" x-text="ev.allDay ? 'All day' : fmtTime(ev.start)"></span>
-                  <span class="cal-title" x-text="ev.title"></span>
-                </div>
-              </template>
-            </div>
-            <div class="cal-empty" x-show="todayEvents().length === 0 && tomorrowEvents().length === 0">
+          </div>
+        </template>
+      </div>
+    </section>
 
     <!-- Fitness -->
     <section class="card fitness-card" data-widget-id="fitness" x-show="editMode || widgetVisible('fitness')" x-data="{
@@ -811,6 +955,7 @@
           this.fitness.data = d;
           this.fitness.error = false;
           this.lastUpdated = Date.now();
+          this.$nextTick(() => this.renderWeightChart());
         } catch(e) {
           console.error('Fitness error:', e);
           this.fitness.error = true;
@@ -829,15 +974,90 @@
         if (diff === 0) return 'Today';
         if (diff === 1) return 'Yesterday';
         return diff + 'd ago';
+      },
+      getWeight(obj) {
+        if (!obj) return null;
+        if (Array.isArray(obj)) return obj[0]?.weight || null;
+        return obj.weight || null;
+      },
+      weightTrendArrow() {
+        const hist = this.fitness.data?.weightHistory;
+        if (!hist || hist.length < 2) return '';
+        const latest = hist[hist.length - 1].weight;
+        const prev = hist[hist.length - 2].weight;
+        if (latest > prev) return String.fromCharCode(0x2191);
+        if (latest < prev) return String.fromCharCode(0x2193);
+        return String.fromCharCode(0x2192);
+      },
+      weightTrendClass() {
+        const hist = this.fitness.data?.weightHistory;
+        if (!hist || hist.length < 2) return '';
+        const latest = hist[hist.length - 1].weight;
+        const prev = hist[hist.length - 2].weight;
+        if (latest > prev) return 'trend-up';
+        if (latest < prev) return 'trend-down';
+        return 'trend-flat';
+      },
+      renderWeightChart() {
+        const svg = this.$refs.weightSvg;
+        if (!svg) return;
+        const hist = this.fitness.data?.weightHistory;
+        if (!hist || hist.length < 2) { svg.innerHTML = ''; return; }
+        const W = 240, H = 60, pad = 4;
+        const weights = hist.map(h => h.weight);
+        const min = Math.min(...weights) - 0.3;
+        const max = Math.max(...weights) + 0.3;
+        const range = max - min || 1;
+        const pts = weights.map((w, i) => {
+          const x = pad + (i / (weights.length - 1)) * (W - pad * 2);
+          const y = H - pad - ((w - min) / range) * (H - pad * 2);
+          return { x, y, w };
+        });
+        const line = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+        const areaPath = line + ' L' + pts[pts.length-1].x.toFixed(1) + ',' + (H - pad) + ' L' + pts[0].x.toFixed(1) + ',' + (H - pad) + ' Z';
+        const last = pts[pts.length - 1];
+        svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+        svg.innerHTML = '<defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#00cec9" stop-opacity="0.3"/><stop offset="100%" stop-color="#00cec9" stop-opacity="0.02"/></linearGradient></defs>'
+          + '<path d="' + areaPath + '" fill="url(#wg)"/>'
+          + '<path d="' + line + '" fill="none" stroke="#00cec9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+          + '<circle cx="' + last.x.toFixed(1) + '" cy="' + last.y.toFixed(1) + '" r="3" fill="#00cec9"/>'
+          + '<text x="' + last.x.toFixed(1) + '" y="' + (last.y - 6).toFixed(1) + '" text-anchor="middle" fill="var(--text)" font-size="9" font-weight="600">' + last.w + '</text>';
+      },
+      weeklyWorkouts() {
+        const wl = this.fitness.data?.weeklyLog;
+        if (!wl) return '--';
+        return wl.totalWorkouts ?? wl.workouts ?? '--';
+      },
+      weeklyAvgCalories() {
+        const wl = this.fitness.data?.weeklyLog;
+        if (!wl) return '--';
+        return wl.avgCalories ? Math.round(wl.avgCalories) : '--';
+      },
+      weeklyWeightChange() {
+        const hist = this.fitness.data?.weightHistory;
+        if (!hist || hist.length < 2) return null;
+        const diff = (hist[hist.length - 1].weight - hist[0].weight).toFixed(1);
+        return (diff > 0 ? '+' : '') + diff;
+      },
+      macroData() {
+        const d = this.fitness.data?.daily;
+        if (!d || !d.totals) return null;
+        const t = d.totals;
+        const tgt = d.targets || {};
+        const macros = [];
+        if (t.carbs != null) macros.push({ label: 'Carbs', value: Math.round(t.carbs), target: tgt.carbs, unit: 'g', cls: 'carbs' });
+        if (t.fat != null) macros.push({ label: 'Fat', value: Math.round(t.fat), target: tgt.fat, unit: 'g', cls: 'fat' });
+        if (t.protein != null) macros.push({ label: 'Protein', value: Math.round(t.protein), target: tgt.protein, unit: 'g', cls: 'protein' });
+        return macros.length > 0 ? macros : null;
       }
     }" x-init="fetchFitness(); setInterval(() => fetchFitness(), 300000)">
       <div class="card-header">
-        <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <span class="drag-handle" x-show="editMode">&#x2807;</span>
+        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('fitness')" :title="widgetVisible('fitness') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('fitness') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">💪</span>
         <h2 class="card-title">Fitness</h2>
-        <a href="http://192.168.0.139:3000" target="_blank" class="card-action-btn" title="Open Fitness App">↗</a>
+        <a :href="'http://' + (window._alfredHost || location.hostname) + ':3000'" target="_blank" class="card-action-btn" title="Open Fitness App">↗</a>
       </div>
       <div class="card-body">
         <template x-if="fitness.loading">
@@ -847,13 +1067,14 @@
           </div>
         </template>
         <template x-if="!fitness.loading && fitness.error">
-          <div class="error-state">
+          <div class="error-state" role="alert">
             <p>Fitness App offline</p>
             <button @click="fitness.loading = true; fetchFitness()" class="retry-btn">Retry</button>
           </div>
         </template>
         <template x-if="!fitness.loading && !fitness.error && fitness.data">
           <div class="fitness-content">
+            <!-- Today's Nutrition -->
             <template x-if="fitness.data.daily">
               <div class="fitness-nutrition">
                 <div class="fitness-section-label">Today's Nutrition</div>
@@ -875,6 +1096,21 @@
                     </div>
                   </div>
                 </template>
+                <!-- Macro Breakdown -->
+                <template x-if="macroData()">
+                  <div class="fitness-macros">
+                    <div class="fitness-section-label" style="margin-top:8px;">Macros</div>
+                    <template x-for="macro in macroData()" :key="macro.label">
+                      <div class="fitness-bar-row">
+                        <span class="fitness-bar-label" x-text="macro.label"></span>
+                        <div class="fitness-bar-track">
+                          <div class="fitness-bar-fill" :class="macro.cls" :style="'width:' + nutritionPercent(macro.value, macro.target) + '%'"></div>
+                        </div>
+                        <span class="fitness-bar-value" x-text="macro.value + (macro.target ? '/' + macro.target : '') + macro.unit"></span>
+                      </div>
+                    </template>
+                  </div>
+                </template>
                 <template x-if="fitness.data.daily.portions">
                   <div class="fitness-portions">
                     <template x-for="(val, key) in fitness.data.daily.portions" :key="key">
@@ -892,10 +1128,14 @@
                 </template>
               </div>
             </template>
+            <!-- Weight + Trend -->
             <div class="fitness-stats">
               <template x-if="fitness.data.latestWeight">
                 <div class="fitness-stat-box">
-                  <span class="fitness-stat-value" x-text="(Array.isArray(fitness.data.latestWeight) ? fitness.data.latestWeight[0]?.weight : fitness.data.latestWeight.weight) ? (Array.isArray(fitness.data.latestWeight) ? fitness.data.latestWeight[0]?.weight : fitness.data.latestWeight.weight) + ' kg' : '--'"></span>
+                  <div class="fitness-weight-display">
+                    <span class="fitness-stat-value" x-text="getWeight(fitness.data.latestWeight) ? getWeight(fitness.data.latestWeight) + ' kg' : '--'"></span>
+                    <span class="fitness-trend-arrow" :class="weightTrendClass()" x-text="weightTrendArrow()"></span>
+                  </div>
                   <span class="fitness-stat-label">Weight</span>
                 </div>
               </template>
@@ -906,20 +1146,43 @@
                 </div>
               </template>
             </div>
+            <!-- Weight Trend Chart -->
+            <template x-if="fitness.data.weightHistory && fitness.data.weightHistory.length >= 2">
+              <div class="fitness-weight-chart">
+                <div class="fitness-section-label">Weight Trend (14d)</div>
+                <svg x-ref="weightSvg" class="weight-sparkline" preserveAspectRatio="none"></svg>
+              </div>
+            </template>
+            <!-- Weekly Summary -->
+            <template x-if="fitness.data.weeklyLog || (fitness.data.weightHistory && fitness.data.weightHistory.length >= 2)">
+              <div class="fitness-weekly-summary">
+                <div class="fitness-section-label">This Week</div>
+                <div class="fitness-weekly-grid">
+                  <div class="fitness-weekly-item">
+                    <span class="fitness-weekly-value" x-text="weeklyWorkouts()"></span>
+                    <span class="fitness-weekly-label">Workouts</span>
+                  </div>
+                  <div class="fitness-weekly-item">
+                    <span class="fitness-weekly-value" x-text="weeklyAvgCalories()"></span>
+                    <span class="fitness-weekly-label">Avg Cal</span>
+                  </div>
+                  <template x-if="weeklyWeightChange() !== null">
+                    <div class="fitness-weekly-item">
+                      <span class="fitness-weekly-value" x-text="weeklyWeightChange() + ' kg'"></span>
+                      <span class="fitness-weekly-label">Weight &#916;</span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
           </div>
         </template>
         <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)"></div>
       </div>
     </section>
-              No upcoming events
-            </div>
-          </div>
-        </template>
-      </div>
-    </section>
 
     <!-- What to Watch -->
-    <section class="card whats-next-card" data-widget-id="whats-next" x-show="editMode || widgetVisible('whats-next')" x-data="{
+    <section class="card whats-next-card" data-widget-id="whats-next" tabindex="0" x-show="editMode || widgetVisible('whats-next')" x-data="{
       movie: null, loading: true,
       async fetchRandom() {
         this.loading = true;
@@ -930,15 +1193,16 @@
         this.loading = false;
       }
     }" x-init="fetchRandom()">
-      <div class="card-header">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['whats-next']" @click="toggleCollapse('whats-next')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
-        <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('whats-next')" :title="widgetVisible('whats-next') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('whats-next') ? '👁' : '👁‍🗨'"></span></button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('whats-next')" :title="widgetVisible('whats-next') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('whats-next') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">🎲</span>
         <h2 class="card-title">What to Watch</h2>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['whats-next'] && 'collapsed'">&#9660;</span>
         <button @click="fetchRandom()" class="card-action-btn" title="Suggest another">↻</button>
       </div>
-      <div class="card-body">
+      <div class="card-body" x-show="!collapsedWidgets['whats-next']" x-transition.duration.200ms>
         <template x-if="loading">
           <div class="skeleton-group">
             <div class="skeleton" style="height:250px;border-radius:12px"></div>
@@ -948,7 +1212,7 @@
           <div class="wtw-content">
             <div class="wtw-poster-wrap">
               <template x-if="movie.posterId">
-                <img :src="'/api/media/poster/' + movie.posterId" class="wtw-poster" alt="">
+                <img loading="lazy" :src="'/api/media/poster/' + movie.posterId" class="wtw-poster" alt="">
               </template>
               <div class="wtw-overlay">
                 <div class="wtw-info">
@@ -966,18 +1230,20 @@
           </div>
         </template>
         <template x-if="!loading && !movie">
-          <div class="error-state"><p>No movie found</p><button @click="fetchRandom()" class="retry-btn">Retry</button></div>
+          <div class="error-state" role="alert"><p>No movie found</p><button @click="fetchRandom()" class="retry-btn">Retry</button></div>
         </template>
       </div>
     </section>
 
     <!-- Cameras (Frigate) -->
-    <section class="card frigate-card" data-widget-id="frigate" x-show="editMode || widgetVisible('frigate')" x-data="{
+    <section class="card frigate-card" data-widget-id="frigate" tabindex="0" x-show="editMode || widgetVisible('frigate')" x-data="{
       cameras: [],
       events: [],
       loading: true,
       lastUpdated: null,
       refreshKey: Date.now(),
+      liveCamera: null,
+      liveStreamUrl: null,
       async fetchCameras() {
         try {
           const r = await fetch('/api/frigate/cameras');
@@ -1007,18 +1273,41 @@
       },
       eventLabel(e) {
         const label = e.label?.charAt(0).toUpperCase() + e.label?.slice(1);
-        const score = e.score ? ' (' + Math.round(e.score * 100) + '%)' : '';
-        return label + score;
+        return label || 'Unknown';
+      },
+      eventScore(e) {
+        return e.score ? Math.round(e.score * 100) : null;
+      },
+      scoreClass(e) {
+        const pct = e.score ? e.score * 100 : 0;
+        if (pct >= 80) return 'score-high';
+        if (pct >= 50) return 'score-mid';
+        return 'score-low';
+      },
+      async openLive(cam) {
+        try {
+          const r = await fetch('/api/frigate/stream/' + encodeURIComponent(cam.name));
+          if (r.ok) {
+            const d = await r.json();
+            this.liveStreamUrl = d.streamUrl;
+            this.liveCamera = cam.name;
+          }
+        } catch(e) { console.error('Stream error:', e); }
+      },
+      closeLive() {
+        this.liveCamera = null;
+        this.liveStreamUrl = null;
       }
-    }" x-init="init()">
-      <div class="card-header">
+    }" x-init="init()" @keydown.escape.window="closeLive()">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['frigate']" @click="toggleCollapse('frigate')">
         <span class="drag-handle" x-show="editMode">&#x2817;</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
-        <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('frigate')" :title="widgetVisible('frigate') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('frigate') ? '👁' : '👁‍🗨'"></span></button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
+        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('frigate')" :title="widgetVisible('frigate') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('frigate') ? 👁 : 👁\u200d🗨"></span></button>
         <span class="card-icon">&#x1F4F7;</span>
         <h2 class="card-title">Cameras</h2>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['frigate'] && 'collapsed'">&#9660;</span>
       </div>
-      <div class="card-body">
+      <div class="card-body" x-show="!collapsedWidgets['frigate']" x-transition.duration.200ms>
         <template x-if="loading">
           <div class="skeleton-group">
             <div class="skeleton skeleton-lg"></div>
@@ -1033,10 +1322,14 @@
                   <img :src="snapshotSrc(cam)" :alt="cam.name" class="frigate-snap" loading="lazy"
                        @error="$el.style.display='none'; $el.nextElementSibling.style.display='flex'"
                   >
+                  <button class="fullscreen-btn" @click.stop="window.dispatchEvent(new CustomEvent('open-fullscreen', {detail: {src: snapshotSrc(cam), type: 'image'}}))" title="Fullscreen">&#x26F6;</button>
                   <div class="frigate-snap-placeholder" style="display:none">
                     <span>Offline</span>
                   </div>
-                  <div class="frigate-cam-label" x-text="cam.name.replace(/_/g, ' ')"></div>
+                  <div class="frigate-cam-label">
+                    <span x-text="cam.name.replace(/_/g, ' ')"></span>
+                    <button class="frigate-live-btn" @click.stop="openLive(cam)" title="Live view">Live</button>
+                  </div>
                 </div>
               </template>
             </div>
@@ -1045,10 +1338,15 @@
                 <div class="frigate-events-title">Recent Detections</div>
                 <div class="frigate-event-list">
                   <template x-for="ev in events" :key="ev.id">
-                    <div class="frigate-event">
+                    <div class="frigate-event frigate-event-alert">
                       <img :src="ev.snapshotUrl" :alt="ev.label" class="frigate-event-thumb" loading="lazy">
                       <div class="frigate-event-info">
-                        <span class="frigate-event-label" x-text="eventLabel(ev)"></span>
+                        <div class="frigate-event-top">
+                          <span class="frigate-event-label" x-text="eventLabel(ev)"></span>
+                          <template x-if="eventScore(ev)">
+                            <span class="frigate-event-score" :class="scoreClass(ev)" x-text="eventScore(ev) + '%'"></span>
+                          </template>
+                        </div>
                         <span class="frigate-event-meta">
                           <span x-text="ev.camera?.replace(/_/g, ' ')"></span> &middot; <span x-text="eventTime(ev.time)"></span>
                         </span>
@@ -1061,15 +1359,33 @@
           </div>
         </template>
         <template x-if="!loading && cameras.length === 0">
-          <div class="error-state"><p>No cameras found</p></div>
+          <div class="error-state" role="alert"><p>No cameras found</p></div>
         </template>
         <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)"></div>
       </div>
+      <!-- Live stream overlay -->
+      <template x-if="liveCamera">
+        <div class="frigate-live-overlay" @click.self="closeLive()">
+          <div class="frigate-live-modal">
+            <div class="frigate-live-header">
+              <span class="frigate-live-title" x-text="liveCamera.replace(/_/g, ' ')"></span>
+              <button class="frigate-live-close" @click="closeLive()">&times;</button>
+            </div>
+            <div class="frigate-live-body">
+              <img :src="liveStreamUrl" alt="Live stream" class="frigate-live-stream">
+            </div>
+          </div>
+        </div>
+      </template>
     </section>
 
     <!-- Network Throughput -->
-    <section class="card network-card" data-widget-id="network-throughput" x-show="editMode || widgetVisible('network-throughput')" x-data="{
+    <section class="card network-card" data-widget-id="network-throughput" tabindex="0" x-show="editMode || widgetVisible('network-throughput')" x-data="{
       net: { loading: true, downloadMbps: 0, uploadMbps: 0, wanIp: null, ispName: null, history: [], error: null },
+      clients: [],
+      clientsLoading: false,
+      clientsOpen: false,
+      latency: null,
       lastUpdated: null,
       async fetchThroughput() {
         try {
@@ -1088,6 +1404,29 @@
           this.net.error = e.message;
         }
       },
+      async fetchClients() {
+        if (this.clientsLoading) return;
+        this.clientsLoading = true;
+        try {
+          const r = await fetch('/api/network/clients');
+          if (r.ok) {
+            const d = await r.json();
+            this.clients = d.clients || [];
+            if (d.latency != null) this.latency = d.latency;
+          }
+        } catch(e) { console.error('Network clients error:', e); }
+        this.clientsLoading = false;
+      },
+      toggleClients() {
+        this.clientsOpen = !this.clientsOpen;
+        if (this.clientsOpen && this.clients.length === 0) this.fetchClients();
+      },
+      formatBytes(bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(1024));
+        return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + units[i];
+      },
       sparkline(history, key, w, h) {
         const vals = history.map(p => p[key]);
         if (vals.length < 2) return '';
@@ -1101,15 +1440,16 @@
           return x + ',' + y;
         }).join(' ');
       }
-    }" x-init="fetchThroughput(); setInterval(() => fetchThroughput(), 10000)">
-      <div class="card-header">
-        <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
-        <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('network-throughput')" :title="widgetVisible('network-throughput') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('network-throughput') ? '👁' : '👁‍🗨'"></span></button>
-        <span class="card-icon">🌐</span>
+    }" x-init="fetchThroughput(); setInterval(() => fetchThroughput(), 10000); setInterval(() => { if (clientsOpen) fetchClients(); }, 30000)">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['network-throughput']" @click="toggleCollapse('network-throughput')">
+        <span class="drag-handle" x-show="editMode">&#x2817;</span>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
+        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('network-throughput')" :title="widgetVisible('network-throughput') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('network-throughput') ? 👁 : 👁\u200d🗨"></span></button>
+        <span class="card-icon">&#x1F310;</span>
         <h2 class="card-title">Network</h2>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['network-throughput'] && 'collapsed'">&#9660;</span>
       </div>
-      <div class="card-body">
+      <div class="card-body" x-show="!collapsedWidgets['network-throughput']" x-transition.duration.200ms>
         <template x-if="net.loading">
           <div class="skeleton-group">
             <div class="skeleton skeleton-md"></div>
@@ -1120,15 +1460,21 @@
           <div class="net-throughput">
             <div class="net-speeds">
               <div class="net-speed-item">
-                <span class="net-arrow down">↓</span>
+                <span class="net-arrow down">&#x2193;</span>
                 <span class="net-speed-value" x-text="net.downloadMbps.toFixed(1)"></span>
                 <span class="net-speed-unit">Mbps</span>
               </div>
               <div class="net-speed-item">
-                <span class="net-arrow up">↑</span>
+                <span class="net-arrow up">&#x2191;</span>
                 <span class="net-speed-value" x-text="net.uploadMbps.toFixed(1)"></span>
                 <span class="net-speed-unit">Mbps</span>
               </div>
+              <template x-if="latency != null">
+                <div class="net-latency-badge" :title="'Latency: ' + latency + 'ms'">
+                  <span class="net-latency-icon">&#x23F1;</span>
+                  <span class="net-latency-value" x-text="latency + 'ms'"></span>
+                </div>
+              </template>
             </div>
             <div class="net-meta">
               <span x-show="net.wanIp" class="net-wan-ip" x-text="'WAN: ' + net.wanIp"></span>
@@ -1136,9 +1482,9 @@
             </div>
             <template x-if="net.history && net.history.length > 1">
               <div class="net-sparklines">
-                <svg class="net-sparkline" width="100%" height="40" viewBox="0 0 200 40" preserveAspectRatio="none">
+                <svg class="net-sparkline net-sparkline-wide" width="100%" height="50" viewBox="0 0 300 50" preserveAspectRatio="none">
                   <polyline
-                    :points="sparkline(net.history, 'dl', 200, 40)"
+                    :points="sparkline(net.history, 'dl', 300, 50)"
                     fill="none"
                     stroke="var(--green)"
                     stroke-width="1.5"
@@ -1146,7 +1492,7 @@
                     stroke-linejoin="round"
                   />
                   <polyline
-                    :points="sparkline(net.history, 'ul', 200, 40)"
+                    :points="sparkline(net.history, 'ul', 300, 50)"
                     fill="none"
                     stroke="var(--accent)"
                     stroke-width="1.5"
@@ -1161,10 +1507,41 @@
                 </div>
               </div>
             </template>
+            <!-- Connected Devices (collapsible) -->
+            <div class="net-clients-section">
+              <button class="net-clients-toggle" @click="toggleClients()">
+                <span class="net-clients-chevron" :class="clientsOpen && 'open'">&#x25B6;</span>
+                Connected Devices
+                <span class="net-clients-count" x-show="clients.length > 0" x-text="'(' + clients.length + ')'"></span>
+              </button>
+              <div class="net-clients-list" x-show="clientsOpen" x-transition.duration.200ms>
+                <template x-if="clientsLoading && clients.length === 0">
+                  <div class="skeleton skeleton-sm" style="margin:8px 0"></div>
+                </template>
+                <template x-if="!clientsLoading && clients.length === 0">
+                  <div class="net-clients-empty">No clients found</div>
+                </template>
+                <template x-for="c in clients" :key="c.mac">
+                  <div class="net-client-row">
+                    <span class="net-client-type-badge" :class="'badge-' + c.type" x-text="c.type === 'wifi' ? 'WiFi' : 'Wired'"></span>
+                    <div class="net-client-info">
+                      <span class="net-client-name" x-text="c.name"></span>
+                      <span class="net-client-ip" x-text="c.ip || c.mac"></span>
+                    </div>
+                    <div class="net-client-stats">
+                      <span class="net-client-traffic" x-text="'&#x2193;' + formatBytes(c.rxBytes) + ' &#x2191;' + formatBytes(c.txBytes)"></span>
+                      <template x-if="c.signal != null">
+                        <span class="net-client-signal" x-text="c.signal + ' dBm'"></span>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
           </div>
         </template>
         <template x-if="!net.loading && net.error">
-          <div class="error-state">
+          <div class="error-state" role="alert">
             <p>Network unavailable</p>
             <button @click="fetchThroughput()" class="retry-btn">Retry</button>
           </div>
@@ -1173,15 +1550,16 @@
       </div>
     </section>
 
-
     <!-- AdGuard -->
-    <section class="card adguard-card" data-widget-id="adguard" x-show="editMode || widgetVisible('adguard')" x-data="{
+    <section class="card adguard-card" data-widget-id="adguard" tabindex="0" x-show="editMode || widgetVisible('adguard')" x-data="{
       ag: { loading: true, stats: null, status: null, error: false },
       lastUpdated: null,
       pauseOpen: false,
       resumeAt: null,
       pauseTimer: null,
       pauseRemaining: '',
+      clients: null,
+      clientsOpen: false,
       async fetchAll() {
         try {
           const [statsR, statusR] = await Promise.all([
@@ -1194,6 +1572,13 @@
           this.lastUpdated = Date.now();
         } catch(e) { console.error('AdGuard error:', e); this.ag.error = true; }
         this.ag.loading = false;
+      },
+      async fetchClients() {
+        if (this.clients) return;
+        try {
+          const r = await fetch('/api/adguard/clients');
+          this.clients = await r.json();
+        } catch(e) { console.error('AdGuard clients error:', e); }
       },
       async toggleProtection() {
         const newState = !this.ag.status?.protectionEnabled;
@@ -1247,23 +1632,37 @@
         if (this.pauseTimer) { clearInterval(this.pauseTimer); this.pauseTimer = null; }
         this.pauseRemaining = '';
       },
+      getBarHeight(val) {
+        const arr = this.ag.stats?.dnsQueries || [];
+        const max = Math.max(...arr, 1);
+        return Math.max(((val / max) * 100), 2) + '%';
+      },
+      getHourLabel(i) {
+        const arr = this.ag.stats?.dnsQueries || [];
+        const now = new Date().getHours();
+        const hour = (now - arr.length + 1 + i + 24) % 24;
+        return String(hour).padStart(2, '0');
+      },
+      blockedName(entry) { return Object.keys(entry)[0] || ''; },
+      blockedCount(entry) { const k = Object.keys(entry)[0]; return k ? entry[k] : 0; },
       fmtNum(n) { return (n || 0).toLocaleString(); }
     }" x-init="fetchAll(); setInterval(() => fetchAll(), 5 * 60 * 1000)">
-      <div class="card-header">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['adguard']" @click="toggleCollapse('adguard')">
         <span class="drag-handle" x-show="editMode">&#x2807;</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
-        <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('adguard')" :title="widgetVisible('adguard') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('adguard') ? '👁' : '👁‍🗨'"></span></button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
+        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('adguard')" :title="widgetVisible('adguard') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('adguard') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon adguard-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
           </svg>
         </span>
         <h2 class="card-title">AdGuard</h2>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['adguard'] && 'collapsed'">&#9660;</span>
         <span class="adguard-status-badge"
               :class="ag.status?.protectionEnabled === true ? 'badge-on' : ag.status?.protectionEnabled === false ? 'badge-off' : 'badge-unknown'"
               x-text="ag.status?.protectionEnabled === true ? 'Protected' : ag.status?.protectionEnabled === false ? 'Disabled' : '...'"></span>
       </div>
-      <div class="card-body">
+      <div class="card-body" x-show="!collapsedWidgets['adguard']" x-transition.duration.200ms>
         <template x-if="ag.loading">
           <div class="skeleton-group">
             <div class="skeleton skeleton-md"></div>
@@ -1286,6 +1685,61 @@
                 <span class="adguard-stat-label">Avg Response</span>
               </div>
             </div>
+
+            <!-- DNS Queries Bar Chart (Last 24h) -->
+            <div class="adguard-chart" x-show="ag.stats?.dnsQueries?.length">
+              <div class="adguard-chart-title">DNS Queries (Last 24h)</div>
+              <div class="adguard-barchart">
+                <template x-for="(val, i) in (ag.stats?.dnsQueries || [])" :key="i">
+                  <div class="adguard-bar-col">
+                    <div class="adguard-bar" :style="'height:' + getBarHeight(val)" :title="getHourLabel(i) + ':00 — ' + fmtNum(val) + ' queries'"></div>
+                    <span class="adguard-bar-label" x-show="i % 4 === 0" x-text="getHourLabel(i)"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Top Blocked Domains -->
+            <div class="adguard-blocked" x-show="ag.stats?.topBlockedDomains?.length">
+              <div class="adguard-section-title">Top Blocked</div>
+              <ul class="adguard-blocked-list">
+                <template x-for="(entry, i) in (ag.stats?.topBlockedDomains || []).slice(0, 5)" :key="i">
+                  <li class="adguard-blocked-item">
+                    <span class="adguard-blocked-domain" x-text="blockedName(entry)"></span>
+                    <span class="adguard-blocked-count" x-text="fmtNum(blockedCount(entry))"></span>
+                  </li>
+                </template>
+              </ul>
+            </div>
+
+            <!-- Collapsible Clients Section -->
+            <div class="adguard-clients-section">
+              <button class="adguard-clients-toggle" @click="clientsOpen = !clientsOpen; if(clientsOpen) fetchClients()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :style="clientsOpen ? 'transform:rotate(90deg)' : ''">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+                Clients
+              </button>
+              <div class="adguard-clients-body" x-show="clientsOpen" x-transition>
+                <template x-if="!clients">
+                  <div class="adguard-clients-loading">Loading...</div>
+                </template>
+                <template x-if="clients && clients.topClients?.length">
+                  <ul class="adguard-clients-list">
+                    <template x-for="(c, i) in clients.topClients" :key="i">
+                      <li class="adguard-client-item">
+                        <span class="adguard-client-ip" x-text="c.ip"></span>
+                        <span class="adguard-client-queries" x-text="fmtNum(c.queries)"></span>
+                      </li>
+                    </template>
+                  </ul>
+                </template>
+                <template x-if="clients && !clients.topClients?.length">
+                  <div class="adguard-clients-loading">No client data</div>
+                </template>
+              </div>
+            </div>
+
             <div class="adguard-pause-info" x-show="resumeAt" x-transition>
               <span class="adguard-pause-icon">&#x23F8;</span>
               <span>Protection paused &mdash; resumes in <strong x-text="pauseRemaining"></strong></span>
@@ -1325,7 +1779,7 @@
           </div>
         </template>
         <template x-if="!ag.loading && ag.error">
-          <div class="error-state">
+          <div class="error-state" role="alert">
             <p>AdGuard unavailable</p>
             <button @click="ag.loading = true; fetchAll()" class="retry-btn">Retry</button>
           </div>
@@ -1361,47 +1815,172 @@
   </div>
 
   <!-- Add Bookmark Modal -->
-  <div class="modal-overlay" x-show="showBookmarkModal" x-transition.opacity @click.self="showBookmarkModal = false" style="display:none;">
+  <div class="modal-overlay" x-show="showBookmarkModal" x-transition.opacity @click.self="showBookmarkModal = false" style="display:none;" x-effect="if (showBookmarkModal) { $nextTick(() => { $el._releaseFocus = trapFocus($el.querySelector('.modal')); }); } else if ($el._releaseFocus) { $el._releaseFocus(); $el._releaseFocus = null; }" role="dialog" aria-modal="true" aria-label="Add Bookmark">
     <div class="modal" @click.stop>
       <h3 class="modal-title">Add Bookmark</h3>
       <form @submit.prevent="addBookmark()">
-        <input type="text" x-model="newBookmark.name" placeholder="Name" class="modal-input" required>
-        <input type="url" x-model="newBookmark.url" placeholder="https://..." class="modal-input" required>
+        <input type="text" x-model="newBookmark.name" placeholder="Name" class="modal-input" required :disabled="bookmarkSubmitting">
+        <input type="url" x-model="newBookmark.url" placeholder="https://..." class="modal-input" required :disabled="bookmarkSubmitting">
+        <div class="modal-error" x-show="bookmarkSubmitError" x-text="bookmarkSubmitError"></div>
         <div class="modal-actions">
-          <button type="button" @click="showBookmarkModal = false" class="btn btn-secondary">Cancel</button>
-          <button type="submit" class="btn btn-primary">Add</button>
+          <button type="button" @click="showBookmarkModal = false" class="btn btn-secondary" :disabled="bookmarkSubmitting">Cancel</button>
+          <button type="submit" class="btn btn-primary" :disabled="bookmarkSubmitting">
+            <span class="spinner" x-show="bookmarkSubmitting"></span>
+            <span x-text="bookmarkSubmitting ? 'Adding...' : 'Add'"></span>
+          </button>
         </div>
       </form>
     </div>
   </div>
 
   <!-- Add Stock Modal -->
-  <div class="modal-overlay" x-show="showStockModal" x-transition.opacity @click.self="showStockModal = false" style="display:none;">
+  <div class="modal-overlay" x-show="showStockModal" x-transition.opacity @click.self="showStockModal = false" style="display:none;" x-effect="if (showStockModal) { $nextTick(() => { $el._releaseFocus = trapFocus($el.querySelector('.modal')); }); } else if ($el._releaseFocus) { $el._releaseFocus(); $el._releaseFocus = null; }" role="dialog" aria-modal="true" aria-label="Add Stock Symbol">
     <div class="modal" @click.stop>
       <h3 class="modal-title">Add Stock Symbol</h3>
       <form @submit.prevent="addStock()">
-        <input type="text" x-model="newStockSymbol" placeholder="e.g. AAPL" class="modal-input" required>
+        <input type="text" x-model="newStockSymbol" placeholder="e.g. AAPL" class="modal-input" required :disabled="stockSubmitting">
+        <div class="modal-error" x-show="stockSubmitError" x-text="stockSubmitError"></div>
         <div class="modal-actions">
-          <button type="button" @click="showStockModal = false" class="btn btn-secondary">Cancel</button>
-          <button type="submit" class="btn btn-primary">Add</button>
+          <button type="button" @click="showStockModal = false" class="btn btn-secondary" :disabled="stockSubmitting">Cancel</button>
+          <button type="submit" class="btn btn-primary" :disabled="stockSubmitting">
+            <span class="spinner" x-show="stockSubmitting"></span>
+            <span x-text="stockSubmitting ? 'Adding...' : 'Add'"></span>
+          </button>
         </div>
       </form>
     </div>
   </div>
 
   <!-- Add Service Modal -->
-  <div class="modal-overlay" x-show="showServiceModal" x-transition.opacity @click.self="showServiceModal = false" style="display:none;">
+  <div class="modal-overlay" x-show="showServiceModal" x-transition.opacity @click.self="showServiceModal = false" style="display:none;" x-effect="if (showServiceModal) { $nextTick(() => { $el._releaseFocus = trapFocus($el.querySelector('.modal')); }); } else if ($el._releaseFocus) { $el._releaseFocus(); $el._releaseFocus = null; }" role="dialog" aria-modal="true" aria-label="Add Service">
     <div class="modal" @click.stop>
       <h3 class="modal-title">Add Service</h3>
       <form @submit.prevent="addService()">
-        <input type="text" x-model="newService.name" placeholder="Service name" class="modal-input" required>
-        <input type="url" x-model="newService.url" placeholder="http://192.168.0..." class="modal-input" required>
-        <input type="text" x-model="newService.icon" placeholder="Icon emoji (e.g. 🔗)" class="modal-input" maxlength="4">
+        <input type="text" x-model="newService.name" placeholder="Service name" class="modal-input" required :disabled="serviceSubmitting">
+        <input type="url" x-model="newService.url" placeholder="http://192.168.0..." class="modal-input" required :disabled="serviceSubmitting">
+        <input type="text" x-model="newService.icon" placeholder="Icon emoji (e.g. 🔗)" class="modal-input" maxlength="4" :disabled="serviceSubmitting">
+        <div class="modal-error" x-show="serviceSubmitError" x-text="serviceSubmitError"></div>
         <div class="modal-actions">
-          <button type="button" @click="showServiceModal = false" class="btn btn-secondary">Cancel</button>
-          <button type="submit" class="btn btn-primary">Add</button>
+          <button type="button" @click="showServiceModal = false" class="btn btn-secondary" :disabled="serviceSubmitting">Cancel</button>
+          <button type="submit" class="btn btn-primary" :disabled="serviceSubmitting">
+            <span class="spinner" x-show="serviceSubmitting"></span>
+            <span x-text="serviceSubmitting ? 'Adding...' : 'Add'"></span>
+          </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div class="toast-container" aria-live="polite">
+    <template x-for="toast in toasts" :key="toast.id">
+      <div class="toast" :class="'toast-' + toast.type" x-show="toast.visible"
+        x-transition:enter="toast-enter" x-transition:enter-start="toast-enter-start" x-transition:enter-end="toast-enter-end"
+        x-transition:leave="toast-leave" x-transition:leave-start="toast-leave-start" x-transition:leave-end="toast-leave-end">
+        <span class="toast-message" x-text="toast.message"></span>
+        <button x-show="toast.undoAction" @click="toast.undoAction(); dismissToast(toast.id)" class="toast-undo-btn">Undo</button>
+        <button @click="dismissToast(toast.id)" class="toast-close">&times;</button>
+      </div>
+    </template>
+  </div>
+
+  <!-- Confirmation Dialog -->
+  <div class="confirm-overlay" x-show="confirmDialog.show" x-transition.opacity @click.self="cancelConfirm()" style="display:none;">
+    <div class="confirm-dialog" @click.stop>
+      <h3 class="confirm-title" x-text="confirmDialog.title"></h3>
+      <p class="confirm-message" x-text="confirmDialog.message"></p>
+      <div class="confirm-actions">
+        <button @click="cancelConfirm()" class="btn btn-secondary">Cancel</button>
+        <button @click="acceptConfirm()" class="btn btn-danger">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay settings-modal-overlay" x-show="showSettingsModal" x-transition.opacity @click.self="showSettingsModal = false" style="display:none;" x-effect="if (showSettingsModal) { $nextTick(() => { $el._releaseFocus = trapFocus($el.querySelector('.modal')); }); } else if ($el._releaseFocus) { $el._releaseFocus(); $el._releaseFocus = null; }" role="dialog" aria-modal="true" aria-label="Settings">
+    <div class="modal settings-modal" @click.stop>
+      <div class="settings-modal-header">
+        <h3 class="modal-title">⚙️ Settings</h3>
+        <button @click="showSettingsModal = false" class="settings-close-btn">&times;</button>
+      </div>
+      <div class="settings-tabs">
+        <button class="settings-tab" :class="{ active: settingsTab === 'general' }" @click="settingsTab = 'general'">General</button>
+        <button class="settings-tab" :class="{ active: settingsTab === 'widgets' }" @click="settingsTab = 'widgets'">Widgets</button>
+        <button class="settings-tab" :class="{ active: settingsTab === 'connections' }" @click="settingsTab = 'connections'">Connections</button>
+      </div>
+      <div class="settings-body">
+        <!-- General Tab -->
+        <div x-show="settingsTab === 'general'" style="display:none;">
+          <div class="settings-section">
+            <h4 class="settings-section-title">Search Engine</h4>
+            <div class="settings-row">
+              <label class="settings-label">Default search engine</label>
+              <select class="settings-select" x-model="settingsData.search_engine" @change="saveSetting('search_engine', settingsData.search_engine)">
+                <option value="google">Google</option>
+                <option value="gemini">Gemini</option>
+              </select>
+            </div>
+          </div>
+          <div class="settings-section">
+            <h4 class="settings-section-title">Theme</h4>
+            <div class="settings-row">
+              <label class="settings-label">Theme preference</label>
+              <select class="settings-select" x-model="settingsData.theme" @change="saveSetting('theme', settingsData.theme)">
+                <option value="dark">Dark (Default)</option>
+                <option value="midnight">Midnight</option>
+                <option value="purple">Purple</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <!-- Widgets Tab -->
+        <div x-show="settingsTab === 'widgets'" style="display:none;">
+          <div class="settings-section">
+            <h4 class="settings-section-title">Weather</h4>
+            <div class="settings-row">
+              <label class="settings-label">Latitude</label>
+              <input type="text" class="settings-input" x-model="settingsData.weather_lat" @change="saveSetting('weather_lat', settingsData.weather_lat)" placeholder="e.g. 31.93">
+            </div>
+            <div class="settings-row">
+              <label class="settings-label">Longitude</label>
+              <input type="text" class="settings-input" x-model="settingsData.weather_lon" @change="saveSetting('weather_lon', settingsData.weather_lon)" placeholder="e.g. 34.87">
+            </div>
+          </div>
+          <div class="settings-section">
+            <h4 class="settings-section-title">RSS</h4>
+            <div class="settings-row">
+              <label class="settings-label">Feed name</label>
+              <input type="text" class="settings-input" x-model="settingsData.rss_feed_name" @change="saveSetting('rss_feed_name', settingsData.rss_feed_name)" placeholder="e.g. Tech News">
+            </div>
+          </div>
+          <div class="settings-section">
+            <h4 class="settings-section-title">Stocks</h4>
+            <div class="settings-row">
+              <label class="settings-label">Default symbols</label>
+              <input type="text" class="settings-input" x-model="settingsData.default_stocks" @change="saveSetting('default_stocks', settingsData.default_stocks)" placeholder="e.g. AAPL,GOOGL,MSFT">
+            </div>
+          </div>
+        </div>
+        <!-- Connections Tab -->
+        <div x-show="settingsTab === 'connections'" style="display:none;">
+          <div class="settings-section">
+            <p class="settings-hint">Connection status is determined by environment variables configured on the server.</p>
+            <template x-for="group in envGroups" :key="group.name">
+              <div class="settings-env-group">
+                <h4 class="settings-section-title" x-text="group.name"></h4>
+                <template x-for="item in group.items" :key="item.name">
+                  <div class="settings-env-row">
+                    <span class="settings-env-status" :class="item.configured ? 'env-ok' : 'env-missing'">
+                      <span x-text="item.configured ? '✅' : '❌'"></span>
+                    </span>
+                    <span class="settings-env-label" x-text="item.label"></span>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1409,22 +1988,43 @@
     function dashboard() {
       return {
         searchEngine: 'google',
+        searchQuery: '',
+        internalSearchResults: [],
+        searchResultIndex: -1,
+        _searchDebounce: null,
         editMode: false,
+        darkMode: (localStorage.getItem('bendash-theme') || 'dark') === 'dark',
         showBookmarkModal: false,
         showStockModal: false,
         showServiceModal: false,
+        showSettingsModal: false,
+        settingsTab: 'general',
+        settingsData: {},
+        envGroups: [],
         newBookmark: { name: '', url: '' },
         newStockSymbol: '',
         newService: { name: '', url: '', icon: '' },
+
+        // UI Feedback state
+        toasts: [],
+        _toastId: 0,
+        confirmDialog: { show: false, title: '', message: '', onConfirm: null, onCancel: null },
+        bookmarkSubmitting: false,
+        bookmarkSubmitError: '',
+        stockSubmitting: false,
+        stockSubmitError: '',
+        serviceSubmitting: false,
+        serviceSubmitError: '',
         _sortableWidgets: null,
         _sortableBookmarks: null,
         _sortableServices: null,
         widgetSizes: {},
         widgetVisibility: {},
+        collapsedWidgets: {},
+        fullscreenContent: null,
         resizeOpen: null,
         resizeDropdownStyle: '',
         bgGradient: '',
-        _tick: 0,
 
         weather: { loading: true, data: null, error: null, lastUpdated: null },
         bookmarks: { loading: true, data: [] },
@@ -1432,7 +2032,12 @@
         services: { loading: true, data: [], lastUpdated: null },
         stocks: { loading: true, data: [], usMarketOpen: true, lastUpdated: null },
 
-        init() {
+        async init() {
+          // Fetch host IP from Alfred Apps API for dynamic links
+          try {
+            const r = await fetch('/api/alfred-apps/status');
+            if (r.ok) { const d = await r.json(); if (d.host) window._alfredHost = d.host; }
+          } catch(e) {}
           this.fetchWeather();
           this.fetchBookmarks();
           this.fetchRSS();
@@ -1440,25 +2045,183 @@
           this.fetchStocks();
           this.fetchWidgetConfig();
 
+          // Restore collapsed state from localStorage
+          try {
+            const saved = localStorage.getItem('bendash-collapsed');
+            if (saved) this.collapsedWidgets = JSON.parse(saved);
+          } catch(e) {}
+
+          // Keyboard navigation: Escape closes modals/dropdowns/fullscreen
+          document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+              if (this.fullscreenContent) { this.closeFullscreen(); return; }
+              if (this.showBookmarkModal) { this.showBookmarkModal = false; return; }
+              if (this.showStockModal) { this.showStockModal = false; return; }
+              if (this.showServiceModal) { this.showServiceModal = false; return; }
+              if (this.showSettingsModal) { this.showSettingsModal = false; return; }
+              if (this.resizeOpen) { this.resizeOpen = null; return; }
+            }
+          });
+
+          // Enter key on focused bookmark or service navigates to URL
+          document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              const el = document.activeElement;
+              if (el && (el.classList.contains('bookmark-item') || el.classList.contains('service-item'))) {
+                const href = el.getAttribute('href');
+                if (href && href !== 'javascript:void(0)') {
+                  window.open(href, '_blank', 'noopener');
+                }
+              }
+            }
+          });
+
+          // Listen for fullscreen events from child components
+          window.addEventListener('open-fullscreen', (e) => {
+            this.openFullscreen(e.detail.src, e.detail.type);
+          });
+
           // Auto-refresh intervals
           setInterval(() => this.fetchWeather(), 30 * 60 * 1000);    // 30 min
           setInterval(() => this.fetchRSS(), 10 * 60 * 1000);        // 10 min
           setInterval(() => this.fetchServices(), 30 * 1000);          // 30 sec
           setInterval(() => this.fetchStocks(), 15 * 60 * 1000);      // 15 min
-          setInterval(() => this._tick++, 30000);                     // refresh timeAgo displays
+          // Refresh timeAgo displays every 30s via vanilla JS
+          setInterval(() => {
+            document.querySelectorAll('.card-updated').forEach(el => {
+              const text = el.getAttribute('x-text');
+              if (text && el.__x) {
+                el.__x.$data.lastUpdated = el.__x.$data.lastUpdated; // trigger reactivity
+              }
+              // Force re-evaluate timeAgo by touching the DOM
+              const match = el.textContent.match(/Updated /);
+              if (match && el._x_dataStack) {
+                const scope = el._x_dataStack[0];
+                if (scope && scope.lastUpdated) {
+                  const txt = 'Updated ' + timeAgo(scope.lastUpdated);
+                  el.textContent = txt;
+                }
+              }
+            });
+          }, 30000);
         },
 
         toggleSearchEngine() {
           this.searchEngine = this.searchEngine === 'google' ? 'gemini' : 'google';
         },
+        toggleTheme() {
+          this.darkMode = !this.darkMode;
+          const theme = this.darkMode ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+          localStorage.setItem('bendash-theme', theme);
+        },
 
         handleSearch(e) {
+          // If internal search mode, don't submit the form
+          if (this.searchQuery.startsWith('/')) {
+            e.preventDefault();
+            return;
+          }
           if (this.searchEngine === 'gemini') {
             e.preventDefault();
             const query = this.$refs.searchInput.value;
             if (query) {
               window.open('https://gemini.google.com/app?q=' + encodeURIComponent(query), '_blank');
             }
+          }
+        },
+
+        handleSearchEnter(e) {
+          if (this.searchQuery.startsWith('/') && this.internalSearchResults.length > 0) {
+            e.preventDefault();
+            const idx = this.searchResultIndex >= 0 ? this.searchResultIndex : 0;
+            const result = this.internalSearchResults[idx];
+            if (result) {
+              if (result.type === 'stock') {
+                window.open(result.url, '_blank');
+              } else {
+                window.location.href = result.url;
+              }
+              this.internalSearchResults = [];
+              this.searchQuery = '';
+            }
+          }
+        },
+
+        onSearchInput() {
+          if (!this.searchQuery.startsWith('/')) {
+            this.internalSearchResults = [];
+            this.searchResultIndex = -1;
+            return;
+          }
+          const term = this.searchQuery.slice(1).trim();
+          if (!term) {
+            this.internalSearchResults = [];
+            this.searchResultIndex = -1;
+            return;
+          }
+          clearTimeout(this._searchDebounce);
+          this._searchDebounce = setTimeout(() => this.doInternalSearch(term), 200);
+        },
+
+        async doInternalSearch(term) {
+          try {
+            const resp = await fetch('/api/search?q=' + encodeURIComponent(term));
+            if (!resp.ok) return;
+            const data = await resp.json();
+            this.internalSearchResults = data.results || [];
+            this.searchResultIndex = -1;
+          } catch (e) {
+            console.error('Internal search error:', e);
+          }
+        },
+
+        navigateSearchResults(dir) {
+          if (this.internalSearchResults.length === 0) return;
+          this.searchResultIndex += dir;
+          if (this.searchResultIndex < 0) this.searchResultIndex = this.internalSearchResults.length - 1;
+          if (this.searchResultIndex >= this.internalSearchResults.length) this.searchResultIndex = 0;
+        },
+
+        // === Settings ===
+        async loadSettings() {
+          try {
+            const [settingsResp, envResp] = await Promise.all([
+              fetch('/api/settings'),
+              fetch('/api/settings/env-info')
+            ]);
+            if (settingsResp.ok) {
+              this.settingsData = await settingsResp.json();
+              if (this.settingsData.search_engine) {
+                this.searchEngine = this.settingsData.search_engine;
+              }
+            }
+            if (envResp.ok) {
+              const envInfo = await envResp.json();
+              const groups = {};
+              for (const item of envInfo) {
+                if (!groups[item.group]) groups[item.group] = { name: item.group, items: [] };
+                groups[item.group].items.push(item);
+              }
+              this.envGroups = Object.values(groups);
+            }
+          } catch (e) {
+            console.error('Load settings error:', e);
+          }
+        },
+
+        async saveSetting(key, value) {
+          try {
+            await fetch('/api/settings', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key, value }),
+            });
+            if (key === 'search_engine') {
+              this.searchEngine = value;
+            }
+          } catch (e) {
+            console.error('Save setting error:', e);
           }
         },
 
@@ -1673,28 +2436,37 @@
 
         // === Service CRUD ===
         async addService() {
+          this.serviceSubmitError = '';
+          this.serviceSubmitting = true;
           try {
             const resp = await fetch('/api/services', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(this.newService),
             });
-            if (resp.ok) {
-              this.newService = { name: '', url: '', icon: '' };
-              this.showServiceModal = false;
-              this.fetchServices();
-            }
+            if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).error || 'Failed to add service');
+            this.newService = { name: '', url: '', icon: '' };
+            this.showServiceModal = false;
+            this.fetchServices();
+            this.showToast('Service added', 'success');
           } catch (err) {
-            console.error('Add service error:', err);
+            this.serviceSubmitError = err.message;
+          } finally {
+            this.serviceSubmitting = false;
           }
         },
 
         async deleteService(id) {
           try {
+            const ok = await this.confirm('Delete Service', 'Are you sure you want to delete this service? This cannot be undone.');
+            if (!ok) return;
             await fetch('/api/services/' + id, { method: 'DELETE' });
             this.services.data = this.services.data.filter(s => s.id !== id);
+            this.showToast('Service deleted', 'success');
           } catch (err) {
+            if (err === 'cancelled') return;
             console.error('Delete service error:', err);
+            this.showToast('Failed to delete service', 'error');
           }
         },
 
@@ -1724,29 +2496,44 @@
         },
 
         async addBookmark() {
+          this.bookmarkSubmitError = '';
+          this.bookmarkSubmitting = true;
           try {
             const resp = await fetch('/api/bookmarks', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(this.newBookmark),
             });
-            if (resp.ok) {
-              const bm = await resp.json();
-              this.bookmarks.data.push(bm);
-              this.newBookmark = { name: '', url: '' };
-              this.showBookmarkModal = false;
-            }
+            if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).error || 'Failed to add bookmark');
+            const bm = await resp.json();
+            this.bookmarks.data.push(bm);
+            this.newBookmark = { name: '', url: '' };
+            this.showBookmarkModal = false;
+            this.showToast('Bookmark added', 'success');
           } catch (err) {
-            console.error('Add bookmark error:', err);
+            this.bookmarkSubmitError = err.message;
+          } finally {
+            this.bookmarkSubmitting = false;
           }
         },
 
         async deleteBookmark(id) {
+          const bookmark = this.bookmarks.data.find(b => b.id === id);
+          if (!bookmark) return;
           try {
             await fetch('/api/bookmarks/' + id, { method: 'DELETE' });
             this.bookmarks.data = this.bookmarks.data.filter(b => b.id !== id);
+            this.showToast('Bookmark deleted', 'info', 5000, () => {
+              fetch('/api/bookmarks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: bookmark.name, url: bookmark.url }),
+              }).then(() => this.fetchBookmarks())
+                .catch(e => this.showToast('Undo failed', 'error'));
+            });
           } catch (err) {
             console.error('Delete bookmark error:', err);
+            this.showToast('Failed to delete bookmark', 'error');
           }
         },
 
@@ -1767,7 +2554,38 @@
         async fetchServices() {
           try {
             const resp = await fetch('/api/services');
-            this.services.data = await resp.json();
+            const data = await resp.json();
+            // Fetch 24h history for each service (for timeline bar)
+            await Promise.all(data.map(async (svc) => {
+              try {
+                const hResp = await fetch('/api/services/history/' + encodeURIComponent(svc.name));
+                if (hResp.ok) {
+                  const history = await hResp.json();
+                  const buckets = [];
+                  const now = Date.now();
+                  const slotMs = 30 * 60 * 1000;
+                  const slots = 48;
+                  for (let i = 0; i < slots; i++) {
+                    const slotStart = now - (slots - i) * slotMs;
+                    const slotEnd = slotStart + slotMs;
+                    const inSlot = history.filter(h => {
+                      const t = new Date(h.timestamp + 'Z').getTime();
+                      return t >= slotStart && t < slotEnd;
+                    });
+                    if (inSlot.length === 0) {
+                      buckets.push({ online: true, timestamp: new Date(slotStart).toLocaleTimeString() });
+                    } else {
+                      const up = inSlot.filter(h => h.online).length;
+                      buckets.push({ online: up >= inSlot.length / 2, timestamp: new Date(slotStart).toLocaleTimeString() });
+                    }
+                  }
+                  svc.history = buckets;
+                } else {
+                  svc.history = [];
+                }
+              } catch(e) { svc.history = []; }
+            }));
+            this.services.data = data;
             this.services.lastUpdated = Date.now();
           } catch (err) {
             console.error('Services error:', err);
@@ -1792,20 +2610,25 @@
         },
 
         async addStock() {
+          this.stockSubmitError = '';
+          this.stockSubmitting = true;
           try {
             const resp = await fetch('/api/stocks', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ symbol: this.newStockSymbol }),
             });
-            if (resp.ok) {
-              this.newStockSymbol = '';
-              this.showStockModal = false;
-              this.stocks.loading = true;
-              this.fetchStocks();
-            }
+            if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).error || 'Failed to add stock');
+            const symbol = this.newStockSymbol;
+            this.newStockSymbol = '';
+            this.showStockModal = false;
+            this.stocks.loading = true;
+            this.fetchStocks();
+            this.showToast('Stock ' + symbol + ' added', 'success');
           } catch (err) {
-            console.error('Add stock error:', err);
+            this.stockSubmitError = err.message;
+          } finally {
+            this.stockSubmitting = false;
           }
         },
 
@@ -1813,8 +2636,17 @@
           try {
             await fetch('/api/stocks/' + encodeURIComponent(symbol), { method: 'DELETE' });
             this.stocks.data = this.stocks.data.filter(s => s.symbol !== symbol);
+            this.showToast('Stock ' + symbol + ' removed', 'info', 5000, () => {
+              fetch('/api/stocks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ symbol }),
+              }).then(() => this.fetchStocks())
+                .catch(e => this.showToast('Undo failed', 'error'));
+            });
           } catch (err) {
             console.error('Delete stock error:', err);
+            this.showToast('Failed to delete stock', 'error');
           }
         },
 
@@ -1860,6 +2692,64 @@
             const y = (height - ((p - min) / range) * (height - 4) - 2).toFixed(1);
             return x + ',' + y;
           }).join(' ');
+        },
+
+        // === Widget Collapse ===
+        toggleCollapse(widgetId) {
+          if (this.editMode) return;
+          this.collapsedWidgets[widgetId] = !this.collapsedWidgets[widgetId];
+          try {
+            localStorage.setItem('bendash-collapsed', JSON.stringify(this.collapsedWidgets));
+          } catch(e) {}
+        },
+
+        // === Fullscreen Mode ===
+        openFullscreen(src, type) {
+          this.fullscreenContent = { src, type: type || 'image' };
+        },
+
+        closeFullscreen() {
+          this.fullscreenContent = null;
+        },
+
+        // === Toast Notifications ===
+        showToast(message, type = 'success', duration = 3000, undoAction = null) {
+          const id = ++this._toastId;
+          const toast = { id, message, type, visible: true, undoAction };
+          this.toasts.push(toast);
+          setTimeout(() => this.dismissToast(id), duration);
+          return id;
+        },
+
+        dismissToast(id) {
+          const toast = this.toasts.find(t => t.id === id);
+          if (toast) {
+            toast.visible = false;
+            setTimeout(() => {
+              this.toasts = this.toasts.filter(t => t.id !== id);
+            }, 300);
+          }
+        },
+
+        // === Confirmation Dialog ===
+        confirm(title, message) {
+          return new Promise((resolve, reject) => {
+            this.confirmDialog = {
+              show: true,
+              title,
+              message,
+              onConfirm: () => { this.confirmDialog.show = false; resolve(true); },
+              onCancel: () => { this.confirmDialog.show = false; reject('cancelled'); },
+            };
+          });
+        },
+
+        acceptConfirm() {
+          if (this.confirmDialog.onConfirm) this.confirmDialog.onConfirm();
+        },
+
+        cancelConfirm() {
+          if (this.confirmDialog.onCancel) this.confirmDialog.onCancel();
         },
 
       };
@@ -1967,6 +2857,7 @@
         loading: true,
         error: null,
         apps: [],
+        host: location.hostname,
         lastUpdated: null,
 
         init() {
@@ -1978,7 +2869,9 @@
           try {
             const resp = await fetch('/api/alfred-apps/status');
             if (!resp.ok) throw new Error('Failed to load');
-            this.apps = (await resp.json()).map(a => ({ ...a, _busy: false }));
+            const body = await resp.json();
+            this.apps = (body.apps || body).map(a => ({ ...a, _busy: false }));
+            if (body.host) this.host = body.host;
             this.error = null;
             this.lastUpdated = Date.now();
           } catch (err) {
@@ -2001,6 +2894,18 @@
           }
         },
 
+        async restart(app) {
+          app._busy = true;
+          try {
+            await fetch(`/api/alfred-apps/${app.id}/restart`, { method: 'POST' });
+            await this.fetchStatus();
+          } catch (err) {
+            console.error('Alfred Apps restart error:', err);
+          } finally {
+            app._busy = false;
+          }
+        },
+
         formatUptime(ms) {
           if (!ms || ms < 0) return '—';
           const totalSeconds = Math.floor(ms / 1000);
@@ -2014,6 +2919,49 @@
         },
       };
     }
+
+    // Accessibility: trap focus within a modal element
+    function trapFocus(modalEl) {
+      const focusableSelectors = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+      const focusableEls = modalEl.querySelectorAll(focusableSelectors);
+      if (focusableEls.length === 0) return () => {};
+      const firstEl = focusableEls[0];
+      const lastEl = focusableEls[focusableEls.length - 1];
+      const opener = document.activeElement;
+
+      function handleKeyDown(e) {
+        if (e.key !== 'Tab') return;
+        if (e.shiftKey) {
+          if (document.activeElement === firstEl) {
+            e.preventDefault();
+            lastEl.focus();
+          }
+        } else {
+          if (document.activeElement === lastEl) {
+            e.preventDefault();
+            firstEl.focus();
+          }
+        }
+      }
+
+      modalEl.addEventListener('keydown', handleKeyDown);
+      requestAnimationFrame(() => firstEl.focus());
+
+      // Return cleanup function that restores focus to opener
+      return function releaseFocus() {
+        modalEl.removeEventListener('keydown', handleKeyDown);
+        if (opener && opener.focus) opener.focus();
+      };
+    }
   </script>
+
+  <!-- Fullscreen Overlay -->
+  <div class="fullscreen-overlay" x-show="fullscreenContent" x-transition.opacity.duration.200ms @click.self="closeFullscreen()" style="display:none;">
+    <button class="fullscreen-close" @click="closeFullscreen()">&times;</button>
+    <template x-if="fullscreenContent">
+      <img :src="fullscreenContent.src" class="fullscreen-image" alt="">
+    </template>
+  </div>
+
 </body>
 </html>

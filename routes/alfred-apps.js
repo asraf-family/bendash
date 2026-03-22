@@ -4,6 +4,7 @@ const router = express.Router();
 
 const CP_URL = process.env.CONTROL_PANEL_URL || 'http://127.0.0.1:3500';
 const CP_PASS = process.env.CONTROL_PANEL_PASS || '';
+const CP_HOST = process.env.CONTROL_PANEL_HOST || new URL(CP_URL).hostname;
 
 let sessionCookie = null;
 
@@ -52,7 +53,7 @@ router.get('/status', async (req, res) => {
     const resp = await cpFetch('/api/status');
     if (!resp.ok) throw new Error(`Control Panel returned ${resp.status}`);
     const data = await resp.json();
-    res.json(data);
+    res.json({ host: CP_HOST, apps: data });
   } catch (err) {
     console.error('Alfred Apps status error:', err.message);
     res.status(502).json({ error: err.message });
@@ -87,6 +88,25 @@ router.post('/:id/stop', async (req, res) => {
     res.json(data);
   } catch (err) {
     console.error('Alfred Apps stop error:', err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// POST /api/alfred-apps/:id/restart
+router.post('/:id/restart', async (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) {
+    return res.status(400).json({ error: 'Invalid id: must be numeric' });
+  }
+  try {
+    const stopResp = await cpFetch(`/api/stop/${req.params.id}`, { method: 'POST' });
+    if (!stopResp.ok) throw new Error(`Stop failed: ${stopResp.status}`);
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    const startResp = await cpFetch(`/api/start/${req.params.id}`, { method: 'POST' });
+    if (!startResp.ok) throw new Error(`Start failed: ${startResp.status}`);
+    const data = await startResp.json();
+    res.json(data);
+  } catch (err) {
+    console.error('Alfred Apps restart error:', err.message);
     res.status(502).json({ error: err.message });
   }
 });

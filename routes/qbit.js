@@ -55,6 +55,24 @@ async function qbitFetch(path) {
   return resp.json();
 }
 
+async function qbitPost(path, body) {
+  const opts = {
+    method: 'POST',
+    headers: {
+      Cookie: `SID=${sid}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body,
+  };
+  const resp = await fetch(`${QBIT_URL}${path}`, opts);
+  if (resp.status === 403) {
+    await ensureLogin();
+    opts.headers.Cookie = `SID=${sid}`;
+    return fetch(`${QBIT_URL}${path}`, opts);
+  }
+  return resp;
+}
+
 router.get('/summary', async (req, res) => {
   try {
     if (!sid) await login();
@@ -68,19 +86,68 @@ router.get('/summary', async (req, res) => {
     const seeding = torrents.filter(t => t.state === 'uploading' || t.state === 'stalledUP' || t.state === 'forcedUP').length;
     const paused = torrents.filter(t => t.state === 'pausedDL' || t.state === 'pausedUP').length;
 
+    const totalUp = transfer.up_info_data || 0;
+    const totalDl = transfer.dl_info_data || 0;
+    const ratio = totalDl > 0 ? (totalUp / totalDl).toFixed(2) : '0.00';
+
     res.json({
       downloadSpeed: formatSpeed(transfer.dl_info_speed || 0),
       uploadSpeed: formatSpeed(transfer.up_info_speed || 0),
       downloading,
       seeding,
       paused,
-      totalDownloaded: formatBytes(transfer.dl_info_data || 0),
-      totalUploaded: formatBytes(transfer.up_info_data || 0),
+      totalDownloaded: formatBytes(totalDl),
+      totalUploaded: formatBytes(totalUp),
+      ratio,
       connected: true,
     });
   } catch (err) {
     console.error('qBit error:', err.message);
     res.json({ connected: false, error: err.message });
+  }
+});
+
+router.get('/torrents', async (req, res) => {
+  try {
+    if (!sid) await login();
+    const torrents = await qbitFetch('/api/v2/torrents/info');
+    const list = torrents.map(t => ({
+      hash: t.hash,
+      name: t.name,
+      size: formatBytes(t.size || 0),
+      progress: Math.round((t.progress || 0) * 100),
+      dlspeed: formatSpeed(t.dlspeed || 0),
+      upspeed: formatSpeed(t.upspeed || 0),
+      ratio: (t.ratio || 0).toFixed(2),
+      state: t.state,
+      added_on: t.added_on,
+    }));
+    res.json({ torrents: list });
+  } catch (err) {
+    console.error('qBit torrents error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/torrents/:hash/pause', async (req, res) => {
+  try {
+    if (!sid) await login();
+    await qbitPost('/api/v2/torrents/pause', `hashes=${req.params.hash}`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('qBit pause error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/torrents/:hash/resume', async (req, res) => {
+  try {
+    if (!sid) await login();
+    await qbitPost('/api/v2/torrents/resume', `hashes=${req.params.hash}`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('qBit resume error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

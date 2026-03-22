@@ -27,7 +27,8 @@ router.get('/stats', async (req, res) => {
       blockedQueries: stats.num_blocked_filtering || 0,
       blockedPercent: stats.num_dns_queries ? ((stats.num_blocked_filtering / stats.num_dns_queries) * 100).toFixed(1) : 0,
       avgProcessingTime: stats.avg_processing_time ? (stats.avg_processing_time * 1000).toFixed(0) : 0,
-      topBlockedDomains: (stats.top_blocked_domains || []).slice(0, 5)
+      topBlockedDomains: (stats.top_blocked_domains || []).slice(0, 5),
+      dnsQueries: (stats.dns_queries || []).slice(-24)
     };
 
     cache = { data: result, ts: Date.now() };
@@ -108,6 +109,47 @@ router.get('/status', async (req, res) => {
     res.json({ protectionEnabled: info.protection_enabled });
   } catch (err) {
     res.json({ protectionEnabled: null, error: err.message });
+  }
+});
+
+// GET /api/adguard/clients - per-client stats
+let clientsCache = { data: null, ts: 0 };
+
+router.get('/clients', async (req, res) => {
+  try {
+    if (clientsCache.data && Date.now() - clientsCache.ts < CACHE_TTL) return res.json(clientsCache.data);
+
+    const headers = {};
+    if (ADGUARD_USER && ADGUARD_PASS) {
+      headers['Authorization'] = 'Basic ' + Buffer.from(`${ADGUARD_USER}:${ADGUARD_PASS}`).toString('base64');
+    }
+
+    const resp = await fetch(`${ADGUARD_URL}/control/clients`, { headers });
+    const data = await resp.json();
+
+    const clients = (data.clients || []).map(c => ({
+      name: c.name || c.ids?.[0] || 'Unknown',
+      ids: c.ids || [],
+      blocked_services: c.blocked_services || [],
+      upstreams: c.upstreams || []
+    }));
+
+    // Also fetch query log stats per client from /control/stats
+    const statsResp = await fetch(`${ADGUARD_URL}/control/stats`, { headers });
+    const stats = await statsResp.json();
+
+    // top_clients is an array of {name: count} objects
+    const topClients = (stats.top_clients || []).map(entry => {
+      const key = Object.keys(entry)[0];
+      return { ip: key, queries: entry[key] };
+    });
+
+    const result = { clients, topClients };
+    clientsCache = { data: result, ts: Date.now() };
+    res.json(result);
+  } catch (err) {
+    console.error('AdGuard clients error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

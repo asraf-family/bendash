@@ -33,6 +33,7 @@ router.get('/continue', async (req, res) => {
       seriesName: item.SeriesName || null,
       episodeTitle: item.Type === 'Episode' ? item.Name : null,
       imagePrimary: `/api/media/poster/${item.SeriesId || item.Id}`,
+      deepLink: `${JF_URL}/web/index.html#!/details?id=${item.Id}`,
       runTimeTicks: item.RunTimeTicks || 0,
       playbackPositionTicks: item.UserData?.PlaybackPositionTicks || 0,
       progressPercent: item.RunTimeTicks
@@ -59,6 +60,7 @@ router.get('/recent', async (req, res) => {
       name: item.Name,
       type: item.Type,
       imagePrimary: `/api/media/poster/${item.Id}`,
+      deepLink: `${JF_URL}/web/index.html#!/details?id=${item.Id}`,
       dateCreated: item.DateCreated || null,
       overview: item.Overview || null,
     }));

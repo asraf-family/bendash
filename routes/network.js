@@ -11,7 +11,7 @@ const CACHE_TTL = 60 * 1000;
 let throughputCache = { data: null, ts: 0 };
 const THROUGHPUT_CACHE_TTL = 10 * 1000;
 let throughputHistory = [];
-const MAX_HISTORY = 20;
+const MAX_HISTORY = 60;
 let prevBytes = null;
 let prevBytesTs = null;
 
@@ -170,6 +170,69 @@ router.get('/throughput', async (req, res) => {
   } catch (err) {
     console.error('Throughput error:', err.message);
     res.status(500).json({ error: err.message, history: throughputHistory });
+  }
+});
+
+// GET /api/network/clients - list connected clients from UniFi
+router.get('/clients', async (req, res) => {
+  try {
+    const unifiUrl = process.env.UNIFI_URL || 'https://192.168.0.1';
+    const unifiUser = process.env.UNIFI_USER;
+    const unifiPass = process.env.UNIFI_PASS;
+    if (!unifiUser || !unifiPass) return res.json({ clients: [], error: 'No UniFi credentials' });
+
+    const loginResp = await fetch(`${unifiUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: unifiUser, password: unifiPass }),
+      agent,
+    });
+    if (!loginResp.ok) return res.json({ clients: [], error: 'UniFi login failed' });
+
+    const cookies = loginResp.headers.raw()['set-cookie'];
+    const cookieStr = cookies ? cookies.map(c => c.split(';')[0]).join('; ') : '';
+
+    // Fetch clients and health data in parallel
+    const [staResp, healthResp] = await Promise.all([
+      fetch(`${unifiUrl}/proxy/network/api/s/default/stat/sta`, {
+        headers: { Cookie: cookieStr },
+        agent,
+      }),
+      fetch(`${unifiUrl}/proxy/network/api/s/default/stat/health`, {
+        headers: { Cookie: cookieStr },
+        agent,
+      }),
+    ]);
+
+    let latency = null;
+    if (healthResp.ok) {
+      const healthData = await healthResp.json();
+      const wan = Array.isArray(healthData.data)
+        ? healthData.data.find(s => s.subsystem === 'wan')
+        : null;
+      if (wan) {
+        latency = wan.latency || wan.internet_latency || wan.uptime_stats?.latency || null;
+      }
+    }
+
+    if (!staResp.ok) return res.json({ clients: [], latency, error: 'Failed to fetch clients' });
+    const staData = await staResp.json();
+
+    const clients = Array.isArray(staData.data) ? staData.data.map(c => ({
+      name: c.name || c.hostname || c.oui || 'Unknown',
+      ip: c.ip || null,
+      mac: c.mac || null,
+      rxBytes: c.rx_bytes || 0,
+      txBytes: c.tx_bytes || 0,
+      signal: c.signal != null ? c.signal : null,
+      type: c.is_wired ? 'wired' : 'wifi',
+      uptime: c.uptime || null,
+    })) : [];
+
+    res.json({ clients, latency });
+  } catch (err) {
+    console.error('Network clients error:', err.message);
+    res.json({ clients: [], error: err.message });
   }
 });
 

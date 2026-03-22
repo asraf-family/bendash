@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
 
     // Try gog CLI first (works on Mac mini)
     try {
-      const raw = execSync('gog calendar list --days 2 --json', {
+      const raw = execSync('gog calendar list --days 7 --json', {
         timeout: 10000,
         encoding: 'utf-8',
       });

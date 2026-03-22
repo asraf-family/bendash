@@ -12,16 +12,29 @@ router.get('/summary', async (req, res) => {
   try {
     if (cache.data && Date.now() - cache.ts < CACHE_TTL) return res.json(cache.data);
 
-    const [dailyResp, metricsResp, workoutResp] = await Promise.all([
+    const [dailyResp, metricsResp, weightHistoryResp, workoutResp, weeklyResp] = await Promise.all([
       fetch(`${FITNESS_URL}/api/daily-log?userId=${FITNESS_USER}`).then(r => r.json()).catch(() => null),
       fetch(`${FITNESS_URL}/api/metrics?userId=${FITNESS_USER}&limit=1`).then(r => r.json()).catch(() => null),
+      fetch(`${FITNESS_URL}/api/metrics?userId=${FITNESS_USER}&limit=14`).then(r => r.json()).catch(() => null),
       fetch(`${FITNESS_URL}/api/workouts?userId=${FITNESS_USER}&limit=1`).then(r => r.json()).catch(() => null),
+      fetch(`${FITNESS_URL}/api/weekly-log?userId=${FITNESS_USER}`).then(r => r.json()).catch(() => null),
     ]);
+
+    // Normalize weight history into [{date, weight}]
+    let weightHistory = [];
+    if (Array.isArray(weightHistoryResp)) {
+      weightHistory = weightHistoryResp
+        .filter(m => m && m.weight)
+        .map(m => ({ date: m.date || m.createdAt, weight: m.weight }))
+        .reverse(); // oldest first for chart
+    }
 
     const result = {
       daily: dailyResp,
       latestWeight: metricsResp,
+      weightHistory,
       lastWorkout: workoutResp,
+      weeklyLog: weeklyResp,
     };
 
     cache = { data: result, ts: Date.now() };

@@ -32,6 +32,8 @@ app.use('/api/adguard', require('./routes/adguard'));
 app.use('/api/fitness', require('./routes/fitness'));
 app.use('/api/frigate', require('./routes/frigate'));
 app.use('/api/alerts', require('./routes/alerts'));
+app.use('/api/search', require('./routes/search'));
+app.use('/api/settings', require('./routes/settings'));
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));

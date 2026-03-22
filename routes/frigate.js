@@ -53,6 +53,34 @@ router.get('/events', async (req, res) => {
   }
 });
 
+// GET /api/frigate/stream/:camera - return MJPEG stream URL for a camera
+router.get('/stream/:camera', async (req, res) => {
+  try {
+    const camera = req.params.camera.replace(/[^a-zA-Z0-9_-]/g, '');
+    // Return the direct MJPEG stream URL from Frigate
+    res.json({ streamUrl: `${FRIGATE_URL}/api/${camera}` });
+  } catch (err) {
+    console.error('Frigate stream error:', err.message);
+    res.status(500).json({ error: 'Unable to get stream URL' });
+  }
+});
+
+// GET /api/frigate/recordings/:camera - list recordings for a camera
+router.get('/recordings/:camera', async (req, res) => {
+  try {
+    const camera = req.params.camera.replace(/[^a-zA-Z0-9_-]/g, '');
+    const after = req.query.after || (Math.floor(Date.now() / 1000) - 86400); // default last 24h
+    const before = req.query.before || Math.floor(Date.now() / 1000);
+    const resp = await fetch(`${FRIGATE_URL}/api/${camera}/recordings?after=${after}&before=${before}`);
+    if (!resp.ok) return res.status(resp.status).json({ error: 'Frigate returned ' + resp.status });
+    const recordings = await resp.json();
+    res.json(recordings);
+  } catch (err) {
+    console.error('Frigate recordings error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/frigate/event-snapshot/:id - proxy event snapshot
 router.get('/event-snapshot/:id', async (req, res) => {
   try {
