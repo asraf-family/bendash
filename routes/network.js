@@ -26,7 +26,7 @@ async function getDeviceCount() {
     const unifiPass = process.env.UNIFI_PASS;
     if (!unifiUser || !unifiPass) return null;
 
-    const loginResp = await fetch(`${unifiUrl}:443/api/auth/login`, {
+    const loginResp = await fetch(`${unifiUrl}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: unifiUser, password: unifiPass }),
@@ -37,7 +37,7 @@ async function getDeviceCount() {
     const cookies = loginResp.headers.raw()['set-cookie'];
     const cookieStr = cookies ? cookies.map(c => c.split(';')[0]).join('; ') : '';
 
-    const staResp = await fetch(`${unifiUrl}:443/proxy/network/api/s/default/stat/sta`, {
+    const staResp = await fetch(`${unifiUrl}/proxy/network/api/s/default/stat/sta`, {
       headers: { Cookie: cookieStr },
       agent,
     });

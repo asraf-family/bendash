@@ -50,7 +50,7 @@ Homarr has too many features Ben doesn't use (40+ integrations, multi-user auth,
 - Source: Open-Meteo API (free, no key)
 
 ### 3.3 📰 Hebits RSS Feed
-- RSS URL: `https://hebits.net/feeds.php?feed=torrents_notify_1833_...` (filtered Movies)
+- RSS URL: `https://hebits.net/feeds.php?feed=<REPLACE_ME>` (filtered Movies)
 - Rich cards: title, description, category tag, time ago
 - Click to download .torrent
 - Auto-refresh every 10 min
@@ -108,7 +108,7 @@ Homarr has too many features Ben doesn't use (40+ integrations, multi-user auth,
 - Auto-refresh every 30s
 
 ### 3.8 💾 TrueNAS Status
-- Source: TrueNAS API (`https://192.168.0.13`, API key: `1-S9knuf...`)
+- Source: TrueNAS API (`https://192.168.0.13`, API key: `<REPLACE_ME>`)
 - **Pools:** Name, status, health, usage (free/total + progress bar)
   - Big pool (~20TB)
   - Fast pool (~450GB)
@@ -118,7 +118,7 @@ Homarr has too many features Ben doesn't use (40+ integrations, multi-user auth,
 
 ### 3.9 ⬇️ qBittorrent Summary
 - Source: qBittorrent API (`http://192.168.0.13:30024`)
-- Auth: admin / alab2006
+- Auth: admin / <REPLACE_ME>
 - Show:
   - Active downloads count
   - Seeding count
@@ -128,15 +128,15 @@ Homarr has too many features Ben doesn't use (40+ integrations, multi-user auth,
 - Compact card, not full torrent list
 
 ### 3.10 🎬 Media Center (Jellyfin/Plex)
-- **Continue Watching** — Jellyfin API (user: bini541, ID: c11b1dd8...)
+- **Continue Watching** — Jellyfin API (user: bini541, ID: `<REPLACE_ME>`)
   - Show: poster, title, progress bar, resume button
 - **Recently Added** — Jellystat API or Jellyfin API
   - Last 10 items added to library
   - Show: poster, title, date added
 - **Currently Playing** — Tautulli API (Plex) + Jellyfin Sessions
   - Who's watching what, transcode/direct, progress
-  - Source: Tautulli (`http://192.168.0.13:30047`, key: `6b03...`)
-  - Source: Jellystat (`http://192.168.0.13:30176`, key: `4c6a...`)
+  - Source: Tautulli (`http://192.168.0.13:30047`, key: `<REPLACE_ME>`)
+  - Source: Jellystat (`http://192.168.0.13:30176`, key: `<REPLACE_ME>`)
 
 ---
 
@@ -232,33 +232,33 @@ PORT=7575
 NODE_ENV=production
 
 # Hebits RSS
-HEBITS_RSS_URL=https://hebits.net/feeds.php?feed=torrents_notify_1833_d2cafff9ed2dedf1e2f54ce0912300ec&user=7205&auth=64c3b3297d42c6809f3b4378769f9388&passkey=d2cafff9ed2dedf1e2f54ce0912300ec&authkey=6f958785017ccdfab0cba2effac84cd6&name=Movies
+HEBITS_RSS_URL=<YOUR_HEBITS_RSS_URL_HERE>
 
 # qBittorrent
 QBIT_URL=http://192.168.0.13:30024
 QBIT_USER=admin
-QBIT_PASS=alab2006
+QBIT_PASS=<YOUR_KEY_HERE>
 
 # Jellyfin
 JELLYFIN_URL=http://192.168.0.13:30013
-JELLYFIN_API_KEY=5549e0250d7746969606ae40574cf075
-JELLYFIN_USER_ID=c11b1dd8491a46578939ef6276e86b7c
+JELLYFIN_API_KEY=<YOUR_KEY_HERE>
+JELLYFIN_USER_ID=<YOUR_KEY_HERE>
 
 # Tautulli (Plex monitoring)
 TAUTULLI_URL=http://192.168.0.13:30047
-TAUTULLI_API_KEY=6b03624d13de4126b260d23fb6c44c61
+TAUTULLI_API_KEY=<YOUR_KEY_HERE>
 
 # Jellystat
 JELLYSTAT_URL=http://192.168.0.13:30176
-JELLYSTAT_API_KEY=4c6a9c54-c6c8-483d-9793-638dc6aa3dfe
+JELLYSTAT_API_KEY=<YOUR_KEY_HERE>
 
 # TrueNAS
 TRUENAS_URL=https://192.168.0.13
-TRUENAS_API_KEY=1-S9knufAO2DXDaBDldvJIee6LOw4404YfzdPTPIAMPPU12SXjdMTU5oZlJD2CCreH
+TRUENAS_API_KEY=<YOUR_KEY_HERE>
 
 # Control Panel (Alfred Apps)
 CONTROL_PANEL_URL=http://192.168.0.139:3500
-CONTROL_PANEL_PASS=Ofri2020!
+CONTROL_PANEL_PASS=<YOUR_KEY_HERE>
 
 # Weather
 WEATHER_LAT=31.93

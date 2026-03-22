@@ -76,10 +76,33 @@ router.put('/reorder', (req, res) => {
   }
 });
 
+// SSRF protection: validate URL before making server-side requests
+function isUrlSafe(urlString) {
+  try {
+    const parsed = new URL(urlString);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+    const hostname = parsed.hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname === '0.0.0.0' || hostname === '::1') return false;
+    // Block private/internal IP ranges
+    const parts = hostname.split('.').map(Number);
+    if (parts.length === 4 && parts.every(p => !isNaN(p))) {
+      if (parts[0] === 127) return false;
+      if (parts[0] === 10) return false;
+      if (parts[0] === 192 && parts[1] === 168) return false;
+      if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return false;
+      if (parts[0] === 0) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Favicon proxy - avoids 404s from Google for private sites
 router.get('/favicon', async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).json({ error: 'url required' });
+  if (!isUrlSafe(url)) return res.status(400).json({ error: 'Invalid or blocked URL' });
   try {
     const fetch = require('node-fetch');
     const domain = new URL(url).hostname;

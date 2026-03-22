@@ -7,6 +7,9 @@ const db = require('../db');
 // Allow self-signed certs for internal services
 const agent = new https.Agent({ rejectUnauthorized: false });
 
+let cache = { data: null, ts: 0 };
+const CACHE_TTL = 15 * 1000; // 15 seconds
+
 async function pingService(service) {
   try {
     const controller = new AbortController();
@@ -43,8 +46,13 @@ async function pingService(service) {
 // GET all services (with live ping status)
 router.get('/', async (req, res) => {
   try {
+    if (cache.data && Date.now() - cache.ts < CACHE_TTL) {
+      return res.json(cache.data);
+    }
+
     const services = db.prepare('SELECT * FROM services ORDER BY sort_order ASC').all();
     const results = await Promise.all(services.map(pingService));
+    cache = { data: results, ts: Date.now() };
     res.json(results);
   } catch (err) {
     console.error('Services error:', err.message);

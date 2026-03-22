@@ -334,7 +334,8 @@
           <div class="bookmarks-grid" x-ref="bookmarksGrid">
             <template x-for="bm in bookmarks.data" :key="bm.id">
               <a :href="editMode ? 'javascript:void(0)' : bm.url" :target="editMode ? '' : '_blank'" rel="noopener" class="bookmark-item" :data-id="bm.id">
-                <img :src="bm.icon" :alt="bm.name" class="bookmark-icon" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%236c5ce7%22 width=%22100%22 height=%22100%22 rx=%2220%22/><text x=%2250%22 y=%2268%22 font-size=%2250%22 text-anchor=%22middle%22 fill=%22white%22>' + bm.name?.charAt(0)?.toUpperCase() + '</text></svg>'; this.onerror=null">
+                <img :src="bm.icon" :alt="bm.name" class="bookmark-icon" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                <div class="bookmark-icon bookmark-fallback" style="display:none; align-items:center; justify-content:center; background:#6c5ce7; color:white; font-size:1.5rem; font-weight:bold; border-radius:12px;" x-text="bm.name?.charAt(0)?.toUpperCase()"></div>
                 <span class="bookmark-name" x-text="bm.name"></span>
                 <button x-show="editMode" @click.prevent.stop="deleteBookmark(bm.id)" class="bookmark-delete" title="Remove">×</button>
               </a>

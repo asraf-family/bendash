@@ -24,15 +24,8 @@ router.get('/status', async (req, res) => {
     ]);
 
     const poolData = pools.map(p => {
-      let totalBytes = 0;
-      let usedBytes = 0;
-      if (p.topology && p.topology.data) {
-        for (const vdev of p.topology.data) {
-          const stats = vdev.stats || {};
-          totalBytes += stats.size || 0;
-          usedBytes += stats.allocated || 0;
-        }
-      }
+      const totalBytes = p.size || 0;
+      const usedBytes = p.allocated || 0;
       const usedPercent = totalBytes > 0 ? Math.round((usedBytes / totalBytes) * 100) : 0;
       return {
         name: p.name,

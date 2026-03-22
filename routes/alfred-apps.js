@@ -61,6 +61,9 @@ router.get('/status', async (req, res) => {
 
 // POST /api/alfred-apps/:id/start
 router.post('/:id/start', async (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) {
+    return res.status(400).json({ error: 'Invalid id: must be numeric' });
+  }
   try {
     const resp = await cpFetch(`/api/start/${req.params.id}`, { method: 'POST' });
     if (!resp.ok) throw new Error(`Control Panel returned ${resp.status}`);
@@ -74,6 +77,9 @@ router.post('/:id/start', async (req, res) => {
 
 // POST /api/alfred-apps/:id/stop
 router.post('/:id/stop', async (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) {
+    return res.status(400).json({ error: 'Invalid id: must be numeric' });
+  }
   try {
     const resp = await cpFetch(`/api/stop/${req.params.id}`, { method: 'POST' });
     if (!resp.ok) throw new Error(`Control Panel returned ${resp.status}`);

@@ -5,6 +5,13 @@ const router = express.Router();
 const { QBIT_URL, QBIT_USER, QBIT_PASS } = process.env;
 
 let sid = null;
+let loginPromise = null;
+
+async function ensureLogin() {
+  if (loginPromise) return loginPromise;
+  loginPromise = login().finally(() => { loginPromise = null; });
+  return loginPromise;
+}
 
 function formatSpeed(bytesPerSec) {
   if (bytesPerSec >= 1048576) return (bytesPerSec / 1048576).toFixed(1) + ' MB/s';
@@ -39,7 +46,7 @@ async function qbitFetch(path) {
   });
   if (resp.status === 403) {
     // Session expired, re-login
-    await login();
+    await ensureLogin();
     const retry = await fetch(`${QBIT_URL}${path}`, {
       headers: { Cookie: `SID=${sid}` },
     });
