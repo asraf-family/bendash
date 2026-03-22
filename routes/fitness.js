@@ -29,12 +29,15 @@ router.get('/summary', async (req, res) => {
         .reverse(); // oldest first for chart
     }
 
+    const fitnessHost = new URL(FITNESS_URL).host;
     const result = {
       daily: dailyResp,
       latestWeight: metricsResp,
       weightHistory,
       lastWorkout: workoutResp,
       weeklyLog: weeklyResp,
+      appUrl: FITNESS_URL,
+      host: fitnessHost,
     };
 
     cache = { data: result, ts: Date.now() };

@@ -660,9 +660,9 @@
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['media'] && 'collapsed'">&#9660;</span>
         <span class="media-stats-row" x-show="mediaStats" x-text="mediaStats"></span>
         <div class="media-tabs">
-          <button class="media-tab" :class="tab === 'continue' && 'active'" @click="tab = 'continue'">Continue</button>
-          <button class="media-tab" :class="tab === 'recent' && 'active'" @click="tab = 'recent'">Recent</button>
-          <button class="media-tab" :class="tab === 'playing' && 'active'" @click="tab = 'playing'">
+          <button class="media-tab" :class="tab === 'continue' && 'active'" @click.stop="tab = 'continue'">Continue</button>
+          <button class="media-tab" :class="tab === 'recent' && 'active'" @click.stop="tab = 'recent'">Recent</button>
+          <button class="media-tab" :class="tab === 'playing' && 'active'" @click.stop="tab = 'playing'">
             Now Playing
             <span class="now-playing-dot" x-show="playing.data.length > 0"></span>
           </button>
@@ -950,7 +950,7 @@
         <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('fitness')" :title="widgetVisible('fitness') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('fitness') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">💪</span>
         <h2 class="card-title">Fitness</h2>
-        <a :href="'http://' + (window._alfredHost || location.hostname) + ':3000'" target="_blank" class="card-action-btn" title="Open Fitness App">↗</a>
+        <a :href="fitness.data?.appUrl || 'http://192.168.0.139:3000'" target="_blank" class="card-action-btn" title="Open Fitness App">↗</a>
       </div>
       <div class="card-body">
         <template x-if="fitness.loading">
@@ -1093,7 +1093,7 @@
         <span class="card-icon">🎲</span>
         <h2 class="card-title">What to Watch</h2>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['whats-next'] && 'collapsed'">&#9660;</span>
-        <button @click="fetchRandom()" class="card-action-btn" title="Suggest another">↻</button>
+        <button @click.stop="fetchRandom()" class="card-action-btn" title="Suggest another">↻</button>
       </div>
       <div class="card-body" x-show="!collapsedWidgets['whats-next']" x-transition.duration.200ms>
         <template x-if="loading">
