@@ -58,7 +58,19 @@ db.exec(`
     data TEXT NOT NULL,
     expires_at INTEGER NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    source TEXT NOT NULL,
+    message TEXT NOT NULL,
+    seen INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
+
+// Add visible column to widget_sizes if it doesn't exist yet
+try { db.exec('ALTER TABLE widget_sizes ADD COLUMN visible INTEGER DEFAULT 1'); } catch(e) {}
 
 // Seed default bookmarks if table is empty
 const count = db.prepare('SELECT COUNT(*) as c FROM bookmarks').get();

@@ -28,6 +28,10 @@ app.use('/api/calendar', require('./routes/calendar'));
 app.use('/api/network', require('./routes/network'));
 app.use('/api/system', require('./routes/system'));
 app.use('/api/media-stats', require('./routes/media-stats'));
+app.use('/api/adguard', require('./routes/adguard'));
+app.use('/api/fitness', require('./routes/fitness'));
+app.use('/api/frigate', require('./routes/frigate'));
+app.use('/api/alerts', require('./routes/alerts'));
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));

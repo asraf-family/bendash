@@ -10,6 +10,30 @@ const agent = new https.Agent({ rejectUnauthorized: false });
 let cache = { data: null, ts: 0 };
 const CACHE_TTL = 15 * 1000; // 15 seconds
 
+// Track last known status for transition detection
+const lastStatus = new Map();
+
+function checkTransition(result) {
+  const prev = lastStatus.get(result.id);
+  lastStatus.set(result.id, result.online);
+
+  // Skip first check (no previous state to compare)
+  if (prev === undefined) return;
+  // No change
+  if (prev === result.online) return;
+
+  const type = result.online ? 'recovery' : 'down';
+  const message = result.online
+    ? `${result.name} is back online`
+    : `${result.name} went offline`;
+
+  try {
+    db.prepare('INSERT INTO alerts (type, source, message) VALUES (?, ?, ?)').run(type, result.name, message);
+  } catch (err) {
+    console.error('Alert insert error:', err.message);
+  }
+}
+
 async function pingService(service) {
   try {
     const controller = new AbortController();
@@ -20,7 +44,9 @@ async function pingService(service) {
       opts.agent = agent;
     }
 
+    const start = Date.now();
     const resp = await fetch(service.url, opts);
+    const responseTimeMs = Date.now() - start;
     clearTimeout(timeout);
 
     return {
@@ -30,6 +56,7 @@ async function pingService(service) {
       icon: service.icon,
       online: resp.status < 500,
       statusCode: resp.status,
+      responseTimeMs,
     };
   } catch (err) {
     return {
@@ -39,6 +66,7 @@ async function pingService(service) {
       icon: service.icon,
       online: false,
       error: err.type === 'aborted' ? 'timeout' : err.code || err.message,
+      responseTimeMs: null,
     };
   }
 }
@@ -52,6 +80,7 @@ router.get('/', async (req, res) => {
 
     const services = db.prepare('SELECT * FROM services ORDER BY sort_order ASC').all();
     const results = await Promise.all(services.map(pingService));
+    results.forEach(checkTransition);
     cache = { data: results, ts: Date.now() };
     res.json(results);
   } catch (err) {

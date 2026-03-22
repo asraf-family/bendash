@@ -8,7 +8,7 @@ function getWidgetOrderWithSizes() {
     SELECT wo.widget_id, wo.sort_order,
            COALESCE(ws.width, 1) AS width,
            COALESCE(ws.height, 'auto') AS height,
-           1 AS visible
+           COALESCE(ws.visible, 1) AS visible
     FROM widget_order wo
     LEFT JOIN widget_sizes ws ON wo.widget_id = ws.widget_id
     ORDER BY wo.sort_order ASC
@@ -76,6 +76,22 @@ router.put('/sizes', (req, res) => {
   } catch (err) {
     console.error('Widget sizes PUT error:', err.message);
     res.status(500).json({ error: 'Failed to save widget sizes' });
+  }
+});
+
+// PUT toggle widget visibility
+router.put('/visibility', (req, res) => {
+  try {
+    const { widget_id, visible } = req.body;
+    if (!widget_id || visible === undefined) {
+      return res.status(400).json({ error: '{widget_id, visible} required' });
+    }
+    db.prepare('INSERT INTO widget_sizes (widget_id, visible) VALUES (?, ?) ON CONFLICT(widget_id) DO UPDATE SET visible = excluded.visible')
+      .run(widget_id, visible ? 1 : 0);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Widget visibility PUT error:', err.message);
+    res.status(500).json({ error: 'Failed to update visibility' });
   }
 });
 
