@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%230a0a0f'/%3E%3Crect x='60' y='60' width='180' height='180' rx='28' fill='%236c5ce7' opacity='0.9'/%3E%3Crect x='272' y='60' width='180' height='80' rx='28' fill='%236c5ce7' opacity='0.6'/%3E%3Crect x='272' y='168' width='180' height='72' rx='28' fill='%236c5ce7' opacity='0.4'/%3E%3Crect x='60' y='272' width='120' height='180' rx='28' fill='%236c5ce7' opacity='0.5'/%3E%3Crect x='208' y='272' width='244' height='180' rx='28' fill='%236c5ce7' opacity='0.7'/%3E%3C/svg%3E">
   <link rel="manifest" href="/manifest.json">
   <title>BenDash</title>
-  <link rel="stylesheet" href="/style.css?v=2026032202">
+  <link rel="stylesheet" href="/style.css?v=2026032203">
   <script defer src="/lib/sortable.min.js?v=2026032201"></script>
   <script>
     // Apply theme before render to prevent flash
@@ -221,13 +221,13 @@
       <!-- Edit mode controls -->
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['weather']" @click="toggleCollapse('weather')" x-show="editMode">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('weather')" :title="widgetVisible('weather') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('weather') ? '👁' : '👁‍🗨'"></span></button>
         <h2 class="card-title">Hero Card</h2>
         <span class="update-dot" x-show="weather.lastUpdated" x-effect="if(weather.lastUpdated) { $el.dataset.updatedTs = weather.lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(weather.lastUpdated); const d = (Date.now() - weather.lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
         <button @click.stop="fetchWeather(); fetchHealth()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh hero">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['weather'] && 'collapsed'">&#9660;</span>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['weather']" x-text="getWidgetSummary('weather')" style="display:none;"></div>
       <div class="hero-card-body" x-show="!collapsedWidgets['weather']" x-transition.duration.200ms>
         <!-- Left: Greeting + Clock -->
         <div class="hero-left" x-data="clock()" x-init="startClock()">
@@ -308,10 +308,10 @@
     </section>
 
     <!-- Stocks -->
-    <section class="card stocks-card" data-widget-id="stocks" tabindex="0" x-show="editMode || widgetVisible('stocks')">
+    <section class="card stocks-card" data-widget-id="stocks" tabindex="0" x-show="editMode || widgetVisible('stocks')" :data-grid-w="getWidgetWidth('stocks')" :data-grid-h="getWidgetHeight('stocks')">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['stocks']" @click="toggleCollapse('stocks')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize('stocks')" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('stocks')" :title="widgetVisible('stocks') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('stocks') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
         <h2 class="card-title">Stocks</h2>
@@ -321,6 +321,7 @@
         <span class="market-badge closed" x-show="!stocks.usMarketOpen" x-cloak>Market Closed</span>
         <button @click="showStockModal = true" class="card-action-btn" title="Add stock" x-show="editMode">+</button>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['stocks']" x-text="getWidgetSummary('stocks')" style="display:none;"></div>
       <div class="card-body" x-show="!collapsedWidgets['stocks']" x-transition.duration.200ms>
         <template x-if="stocks.loading">
           <div class="skeleton-group">
@@ -374,10 +375,10 @@
     </section>
 
     <!-- RSS Feed -->
-    <section class="card rss-card" data-widget-id="rss" tabindex="0" x-show="editMode || widgetVisible('rss')">
+    <section class="card rss-card" data-widget-id="rss" tabindex="0" x-show="editMode || widgetVisible('rss')" :data-grid-w="getWidgetWidth('rss')" :data-grid-h="getWidgetHeight('rss')">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['rss']" @click="toggleCollapse('rss')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize('rss')" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('rss')" :title="widgetVisible('rss') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('rss') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1" fill="currentColor"/></svg></span>
         <h2 class="card-title">Hebits Feed</h2>
@@ -385,6 +386,7 @@
         <button @click.stop="fetchRSS()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh RSS">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['rss'] && 'collapsed'">&#9660;</span>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['rss']" x-text="getWidgetSummary('rss')" style="display:none;"></div>
       <div class="card-body rss-body" x-show="!collapsedWidgets['rss']" x-transition.duration.200ms>
         <template x-if="rss.loading">
           <div class="skeleton-group">
@@ -421,10 +423,10 @@
     </section>
 
     <!-- Bookmarks -->
-    <section class="card bookmarks-card" data-widget-id="bookmarks" tabindex="0" x-show="editMode || widgetVisible('bookmarks')">
+    <section class="card bookmarks-card" data-widget-id="bookmarks" tabindex="0" x-show="editMode || widgetVisible('bookmarks')" :data-grid-w="getWidgetWidth('bookmarks')" :data-grid-h="getWidgetHeight('bookmarks')">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['bookmarks']" @click="toggleCollapse('bookmarks')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('bookmarks')" :title="widgetVisible('bookmarks') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('bookmarks') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></span>
         <h2 class="card-title">Bookmarks</h2>
@@ -432,6 +434,7 @@
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['bookmarks'] && 'collapsed'">&#9660;</span>
         <button @click="showBookmarkModal = true" class="card-action-btn" title="Add bookmark" x-show="editMode">+</button>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['bookmarks']" x-text="getWidgetSummary('bookmarks')" style="display:none;"></div>
       <div class="card-body" x-show="!collapsedWidgets['bookmarks']" x-transition.duration.200ms>
         <template x-if="bookmarks.loading">
           <div class="skeleton-group skeleton-grid">
@@ -454,10 +457,10 @@
     </section>
 
     <!-- Services -->
-    <section class="card services-card" data-widget-id="services" tabindex="0" x-show="editMode || widgetVisible('services')">
+    <section class="card services-card" data-widget-id="services" tabindex="0" x-show="editMode || widgetVisible('services')" :data-grid-w="getWidgetWidth('services')" :data-grid-h="getWidgetHeight('services')">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['services']" @click="toggleCollapse('services')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('services')" :title="widgetVisible('services') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('services') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
         <h2 class="card-title">Services</h2>
@@ -470,6 +473,7 @@
           <span x-text="services.data.filter(s => s.online).length + '/' + services.data.length"></span>
         </span>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['services']" x-text="getWidgetSummary('services')" style="display:none;"></div>
       <div class="card-body" x-show="!collapsedWidgets['services']" x-transition.duration.200ms>
         <template x-if="services.loading">
           <div class="skeleton-group skeleton-grid">
@@ -513,7 +517,7 @@
     </section>
 
     <!-- qBittorrent -->
-    <section class="card qbit-card" data-widget-id="qbit" tabindex="0" x-show="editMode || widgetVisible('qbit')" x-data="{
+    <section class="card qbit-card" data-widget-id="qbit" tabindex="0" x-show="editMode || widgetVisible('qbit')" :data-grid-w="getWidgetWidth('qbit')" :data-grid-h="getWidgetHeight('qbit')" x-data="{
       qbit: { loading: true, data: null },
       torrents: [],
       showTorrents: false,
@@ -563,7 +567,7 @@
     }" x-init="fetchQbit(); setInterval(() => fetchQbit(), 30000)" @refresh-all.window="fetchQbit()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['qbit']" @click="toggleCollapse('qbit')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('qbit')" :title="widgetVisible('qbit') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('qbit') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
         <h2 class="card-title">Downloads</h2>
@@ -571,6 +575,7 @@
         <button @click.stop="fetchQbit()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh downloads">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['qbit'] && 'collapsed'">&#9660;</span>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['qbit']" x-text="getWidgetSummary('qbit')" style="display:none;"></div>
       <div class="card-body" x-show="!collapsedWidgets['qbit']" x-transition.duration.200ms>
         <template x-if="qbit.loading">
           <div class="skeleton-group">
@@ -645,7 +650,7 @@
     </section>
 
     <!-- TrueNAS -->
-    <section class="card truenas-card" data-widget-id="truenas" tabindex="0" x-show="editMode || widgetVisible('truenas')" x-data="{
+    <section class="card truenas-card" data-widget-id="truenas" tabindex="0" x-show="editMode || widgetVisible('truenas')" :data-grid-w="getWidgetWidth('truenas')" :data-grid-h="getWidgetHeight('truenas')" x-data="{
       nas: { loading: true, data: null, error: null },
       lastUpdated: null,
       async fetchNAS() {
@@ -661,7 +666,7 @@
     }" x-init="fetchNAS(); setInterval(() => fetchNAS(), 60000)" @refresh-all.window="fetchNAS()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['truenas']" @click="toggleCollapse('truenas')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('truenas')" :title="widgetVisible('truenas') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('truenas') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></span>
         <h2 class="card-title">TrueNAS</h2>
@@ -669,6 +674,7 @@
         <button @click.stop="fetchNAS()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh TrueNAS">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['truenas'] && 'collapsed'">&#9660;</span>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['truenas']" x-text="getWidgetSummary('truenas')" style="display:none;"></div>
       <div class="card-body" x-show="!collapsedWidgets['truenas']" x-transition.duration.200ms>
         <template x-if="nas.loading">
           <div class="skeleton-group">
@@ -720,10 +726,10 @@
     </section>
 
     <!-- Media Center -->
-    <section class="card media-card" data-widget-id="media" tabindex="0" x-show="editMode || widgetVisible('media')" x-data="mediaCenter()" x-init="init()" @refresh-all.window="fetchContinue(); fetchRecent(); fetchPlaying(); fetchMediaStats()">
+    <section class="card media-card" data-widget-id="media" tabindex="0" x-show="editMode || widgetVisible('media')" :data-grid-w="getWidgetWidth('media')" :data-grid-h="getWidgetHeight('media')" x-data="mediaCenter()" x-init="init()" @refresh-all.window="fetchContinue(); fetchRecent(); fetchPlaying(); fetchMediaStats()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['media']" @click="toggleCollapse('media')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('media')" :title="widgetVisible('media') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('media') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/></svg></span>
         <h2 class="card-title">Media Center</h2>
@@ -741,6 +747,7 @@
           <button class="media-tab" :class="tab === 'nextup' && 'active'" @click.stop="tab = 'nextup'">Next Up</button>
         </div>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['media']" x-text="getWidgetSummary('media')" style="display:none;"></div>
       <div class="card-body" x-show="!collapsedWidgets['media']" x-transition.duration.200ms>
 
         <!-- Continue Watching -->
@@ -903,10 +910,10 @@
     </section>
 
     <!-- Alfred Apps -->
-    <section class="card alfred-apps-card" data-widget-id="alfred-apps" tabindex="0" x-show="editMode || widgetVisible('alfred-apps')" x-data="alfredApps()" x-init="init()" @refresh-all.window="fetchStatus()">
+    <section class="card alfred-apps-card" data-widget-id="alfred-apps" tabindex="0" x-show="editMode || widgetVisible('alfred-apps')" :data-grid-w="getWidgetWidth('alfred-apps')" :data-grid-h="getWidgetHeight('alfred-apps')" x-data="alfredApps()" x-init="init()" @refresh-all.window="fetchStatus()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['alfred-apps']" @click="toggleCollapse('alfred-apps')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('alfred-apps')" :title="widgetVisible('alfred-apps') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('alfred-apps') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg></span>
         <h2 class="card-title">Alfred Apps</h2>
@@ -918,6 +925,7 @@
           <span x-text="apps.filter(a => a.status === 'up').length + '/' + apps.length"></span>
         </span>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['alfred-apps']" x-text="getWidgetSummary('alfred-apps')" style="display:none;"></div>
       <div class="card-body" x-show="!collapsedWidgets['alfred-apps']" x-transition.duration.200ms>
         <template x-if="loading">
           <div class="skeleton-group">
@@ -966,7 +974,7 @@
     </section>
 
     <!-- Calendar -->
-    <section class="card calendar-card" data-widget-id="calendar" tabindex="0" x-show="editMode || widgetVisible('calendar')" x-data="{
+    <section class="card calendar-card" data-widget-id="calendar" tabindex="0" x-show="editMode || widgetVisible('calendar')" :data-grid-w="getWidgetWidth('calendar')" :data-grid-h="getWidgetHeight('calendar')" x-data="{
       events: [], loading: true,
       async fetchCalendar() {
         try {
@@ -1010,13 +1018,14 @@
     }" x-init="fetchCalendar(); setInterval(() => fetchCalendar(), 300000)" @refresh-all.window="fetchCalendar()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['calendar']" @click="toggleCollapse('calendar')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
         <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('calendar')" :title="widgetVisible('calendar') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('calendar') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
         <h2 class="card-title">Calendar</h2>
         <button @click.stop="fetchCalendar()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh calendar">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['calendar'] && 'collapsed'">&#9660;</span>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['calendar']" x-text="getWidgetSummary('calendar')" style="display:none;"></div>
       <div class="card-body" x-show="!collapsedWidgets['calendar']" x-transition.duration.200ms>
         <template x-if="loading">
           <div class="skeleton-group">
@@ -1050,10 +1059,10 @@
     </section>
 
     <!-- Fitness -->
-    <section class="card fitness-card" data-widget-id="fitness" x-show="editMode || widgetVisible('fitness')" x-data="fitnessWidget()" x-init="fetchFitness(); setInterval(() => fetchFitness(), 300000)" @refresh-all.window="fetchFitness()">
+    <section class="card fitness-card" data-widget-id="fitness" x-show="editMode || widgetVisible('fitness')" :data-grid-w="getWidgetWidth('fitness')" :data-grid-h="getWidgetHeight('fitness')" x-data="fitnessWidget()" x-init="fetchFitness(); setInterval(() => fetchFitness(), 300000)" @refresh-all.window="fetchFitness()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['fitness']" @click="toggleCollapse('fitness')">
         <span class="drag-handle" x-show="editMode">&#x2807;</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
+        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('fitness')" :title="widgetVisible('fitness') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('fitness') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg></span>
         <h2 class="card-title">Fitness</h2>
@@ -1062,6 +1071,7 @@
         <a :href="fitness.data?.appUrl || 'http://192.168.0.139:3000'" target="_blank" class="card-action-btn" title="Open Fitness App">↗</a>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['fitness'] && 'collapsed'">&#9660;</span>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['fitness']" x-text="getWidgetSummary('fitness')" style="display:none;"></div>
       <div class="card-body" x-show="!collapsedWidgets['fitness']" x-transition.duration.200ms>
         <template x-if="fitness.loading">
           <div class="skeleton-group">
@@ -1184,7 +1194,7 @@
     </section>
 
     <!-- What to Watch -->
-    <section class="card whats-next-card" data-widget-id="whats-next" tabindex="0" x-show="editMode || widgetVisible('whats-next')" x-data="{
+    <section class="card whats-next-card" data-widget-id="whats-next" tabindex="0" x-show="editMode || widgetVisible('whats-next')" :data-grid-w="getWidgetWidth('whats-next')" :data-grid-h="getWidgetHeight('whats-next')" x-data="{
       movie: null, loading: true,
       filterGenre: '', filterMinRating: '',
       async fetchRandom() {
@@ -1202,13 +1212,14 @@
     }" x-init="fetchRandom()" @refresh-all.window="fetchRandom()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['whats-next']" @click="toggleCollapse('whats-next')">
         <span class="drag-handle" x-show="editMode">⠿</span>
-        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('whats-next')" :title="widgetVisible('whats-next') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('whats-next') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/></svg></span>
         <h2 class="card-title">What to Watch</h2>
         <button @click.stop="fetchRandom()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh suggestion">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['whats-next'] && 'collapsed'">&#9660;</span>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['whats-next']" x-text="getWidgetSummary('whats-next')" style="display:none;"></div>
       <div class="card-body" x-show="!collapsedWidgets['whats-next']" x-transition.duration.200ms>
         <div class="wtw-filter-row">
           <select x-model="filterGenre" @change="fetchRandom()" class="wtw-filter-select">
@@ -1263,7 +1274,7 @@
     </section>
 
     <!-- Cameras (Frigate) -->
-    <section class="card frigate-card" data-widget-id="frigate" tabindex="0" x-show="editMode || widgetVisible('frigate')" x-data="{
+    <section class="card frigate-card" data-widget-id="frigate" tabindex="0" x-show="editMode || widgetVisible('frigate')" :data-grid-w="getWidgetWidth('frigate')" :data-grid-h="getWidgetHeight('frigate')" x-data="{
       cameras: [],
       events: [],
       loading: true,
@@ -1332,7 +1343,7 @@
     }" x-init="init()" @keydown.escape.window="closeLive()" @refresh-all.window="fetchCameras(); fetchEvents()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['frigate']" @click="toggleCollapse('frigate')">
         <span class="drag-handle" x-show="editMode">&#x2817;</span>
-        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('frigate')" :title="widgetVisible('frigate') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('frigate') ? '\u{1F441}' : '\u{1F441}\u200D\u{1F5E8}'"></span></button>
         <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
         <h2 class="card-title">Cameras</h2>
@@ -1340,6 +1351,7 @@
         <button @click.stop="fetchCameras(); fetchEvents()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh cameras">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['frigate'] && 'collapsed'">&#9660;</span>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['frigate']" x-text="getWidgetSummary('frigate')" style="display:none;"></div>
       <div class="card-body" x-show="!collapsedWidgets['frigate']" x-transition.duration.200ms>
         <template x-if="loading">
           <div class="skeleton-group">
@@ -1413,7 +1425,7 @@
     </section>
 
     <!-- Network Throughput -->
-    <section class="card network-card" data-widget-id="network-throughput" tabindex="0" x-show="editMode || widgetVisible('network-throughput')" x-data="{
+    <section class="card network-card" data-widget-id="network-throughput" tabindex="0" x-show="editMode || widgetVisible('network-throughput')" :data-grid-w="getWidgetWidth('network-throughput')" :data-grid-h="getWidgetHeight('network-throughput')" x-data="{
       net: { loading: true, downloadMbps: 0, uploadMbps: 0, wanIp: null, ispName: null, history: [], error: null },
       clients: [],
       clientsLoading: false,
@@ -1493,7 +1505,7 @@
     }" x-init="fetchThroughput(); setInterval(() => fetchThroughput(), 10000); setInterval(() => { if (clientsOpen) fetchClients(); }, 30000)" @refresh-all.window="fetchThroughput()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['network-throughput']" @click="toggleCollapse('network-throughput')">
         <span class="drag-handle" x-show="editMode">&#x2817;</span>
-        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('network-throughput')" :title="widgetVisible('network-throughput') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('network-throughput') ? '\u{1F441}' : '\u{1F441}\u200D\u{1F5E8}'"></span></button>
         <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg></span>
         <h2 class="card-title">Network</h2>
@@ -1501,6 +1513,7 @@
         <button @click.stop="fetchThroughput()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh network">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['network-throughput'] && 'collapsed'">&#9660;</span>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['network-throughput']" x-text="getWidgetSummary('network-throughput')" style="display:none;"></div>
       <div class="card-body" x-show="!collapsedWidgets['network-throughput']" x-transition.duration.200ms>
         <template x-if="net.loading">
           <div class="skeleton-group">
@@ -1621,7 +1634,7 @@
     </section>
 
     <!-- AdGuard -->
-    <section class="card adguard-card" data-widget-id="adguard" tabindex="0" x-show="editMode || widgetVisible('adguard')" x-data="{
+    <section class="card adguard-card" data-widget-id="adguard" tabindex="0" x-show="editMode || widgetVisible('adguard')" :data-grid-w="getWidgetWidth('adguard')" :data-grid-h="getWidgetHeight('adguard')" x-data="{
       ag: { loading: true, stats: null, status: null, error: false },
       lastUpdated: null,
       pauseOpen: false,
@@ -1728,7 +1741,7 @@
     }" x-init="fetchAll(); setInterval(() => fetchAll(), 5 * 60 * 1000)" @refresh-all.window="fetchAll()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['adguard']" @click="toggleCollapse('adguard')">
         <span class="drag-handle" x-show="editMode">&#x2807;</span>
-        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('adguard')" :title="widgetVisible('adguard') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('adguard') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon adguard-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1743,6 +1756,7 @@
               :class="ag.status?.protectionEnabled === true ? 'badge-on' : ag.status?.protectionEnabled === false ? 'badge-off' : 'badge-unknown'"
               x-text="ag.status?.protectionEnabled === true ? 'Protected' : ag.status?.protectionEnabled === false ? 'Disabled' : '...'"></span>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['adguard']" x-text="getWidgetSummary('adguard')" style="display:none;"></div>
       <div class="card-body" x-show="!collapsedWidgets['adguard']" x-transition.duration.200ms>
         <template x-if="ag.loading">
           <div class="skeleton-group">
@@ -1878,7 +1892,7 @@
 
 
     <!-- Quick Notes -->
-    <section class="card notes-card" data-widget-id="notes" tabindex="0" x-show="editMode || widgetVisible('notes')" x-data="{
+    <section class="card notes-card" data-widget-id="notes" tabindex="0" x-show="editMode || widgetVisible('notes')" :data-grid-w="getWidgetWidth('notes')" :data-grid-h="getWidgetHeight('notes')" x-data="{
       note: { content: '' },
       yesterday: { content: '' },
       loading: true,
@@ -1918,13 +1932,14 @@
     }" x-init="fetchNote()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['notes']" @click="toggleCollapse('notes')">
         <span class="drag-handle" x-show="editMode">&#x2807;</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
+        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('notes')" :title="widgetVisible('notes') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('notes') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
         <h2 class="card-title">Quick Notes</h2>
         <span class="note-saving-indicator" x-show="saving" x-transition>Saving...</span>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['notes'] && 'collapsed'">&#9660;</span>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['notes']" x-text="getWidgetSummary('notes')" style="display:none;"></div>
       <div class="card-body" x-show="!collapsedWidgets['notes']" x-transition.duration.200ms>
         <template x-if="loading">
           <div class="skeleton-group">
@@ -1962,7 +1977,7 @@
     </section>
 
     <!-- Shopping List -->
-    <section class="card shopping-card" data-widget-id="shopping" tabindex="0" x-show="editMode || widgetVisible('shopping')" x-data="{
+    <section class="card shopping-card" data-widget-id="shopping" tabindex="0" x-show="editMode || widgetVisible('shopping')" :data-grid-w="getWidgetWidth('shopping')" :data-grid-h="getWidgetHeight('shopping')" x-data="{
       items: [],
       loading: true,
       newItem: '',
@@ -2022,13 +2037,14 @@
     }" x-init="fetchItems()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['shopping']" @click="toggleCollapse('shopping')">
         <span class="drag-handle" x-show="editMode">&#x2807;</span>
-        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
+        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('shopping')" :title="widgetVisible('shopping') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('shopping') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
         <h2 class="card-title">Shopping List</h2>
         <span class="shopping-count-badge" x-show="items.length > 0" x-text="uncheckedItems().length"></span>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['shopping'] && 'collapsed'">&#9660;</span>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['shopping']" x-text="getWidgetSummary('shopping')" style="display:none;"></div>
       <div class="card-body" x-show="!collapsedWidgets['shopping']" x-transition.duration.200ms>
         <template x-if="loading">
           <div class="skeleton-group">
@@ -2078,7 +2094,7 @@
 
 
     <!-- Speedtest Widget -->
-    <section class="card speedtest-card" data-widget-id="speedtest" tabindex="0" x-show="editMode || widgetVisible('speedtest')" x-data="{
+    <section class="card speedtest-card" data-widget-id="speedtest" tabindex="0" x-show="editMode || widgetVisible('speedtest')" :data-grid-w="getWidgetWidth('speedtest')" :data-grid-h="getWidgetHeight('speedtest')" x-data="{
       st: { loading: true, latest: null, history: [], error: false, running: false },
       lastUpdated: null,
       async fetchData() {
@@ -2126,12 +2142,13 @@
     }" x-init="fetchData(); setInterval(() => fetchData(), 10 * 60 * 1000)">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['speedtest']" @click="toggleCollapse('speedtest')">
         <span class="drag-handle" x-show="editMode">&#x2807;</span>
-        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('speedtest')" :title="widgetVisible('speedtest') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('speedtest') ? '&#x1F441;' : '&#x1F441;&#x200D;&#x1F5E8;'"></span></button>
         <span class="card-icon"><svg class="card-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 12l6-6"/><circle cx="12" cy="12" r="2"/></svg></span>
         <h2 class="card-title">Speedtest</h2>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['speedtest'] && 'collapsed'">&#9660;</span>
       </div>
+      <div class="card-minimized-summary" x-show="collapsedWidgets['speedtest']" x-text="getWidgetSummary('speedtest')" style="display:none;"></div>
       <div class="card-body" x-show="!collapsedWidgets['speedtest']" x-transition.duration.200ms>
         <template x-if="st.loading">
           <div class="skeleton-group">
@@ -2183,28 +2200,15 @@
     </section>
   </main>
 
-  <!-- Global Resize Dropdown (single instance, positioned dynamically) -->
-  <div class="resize-dropdown"
-       x-show="resizeOpen"
+  <!-- Resize Grid Picker (global, positioned on active widget) -->
+  <div class="resize-grid-picker"
+       x-show="resizingWidget"
        x-transition
-       @click.outside="resizeOpen = null"
-       :style="resizeDropdownStyle"
-       style="display:none;position:fixed;z-index:9999;">
-    <div class="resize-section"><span class="resize-label">Width</span>
-      <div class="resize-options">
-        <button class="resize-opt" :class="getWidgetSize(resizeOpen).width === 1 && 'active'" @click="setWidgetSize(resizeOpen, 1, getWidgetSize(resizeOpen).height)">1 col</button>
-        <button class="resize-opt" :class="getWidgetSize(resizeOpen).width === 2 && 'active'" @click="setWidgetSize(resizeOpen, 2, getWidgetSize(resizeOpen).height)">2 cols</button>
-        <button class="resize-opt" :class="getWidgetSize(resizeOpen).width === 3 && 'active'" @click="setWidgetSize(resizeOpen, 3, getWidgetSize(resizeOpen).height)">Full</button>
-      </div>
-    </div>
-    <div class="resize-section"><span class="resize-label">Height</span>
-      <div class="resize-options">
-        <button class="resize-opt" :class="getWidgetSize(resizeOpen).height === 'auto' && 'active'" @click="setWidgetSize(resizeOpen, getWidgetSize(resizeOpen).width, 'auto')">Auto</button>
-        <button class="resize-opt" :class="getWidgetSize(resizeOpen).height === 'sm' && 'active'" @click="setWidgetSize(resizeOpen, getWidgetSize(resizeOpen).width, 'sm')">Small</button>
-        <button class="resize-opt" :class="getWidgetSize(resizeOpen).height === 'md' && 'active'" @click="setWidgetSize(resizeOpen, getWidgetSize(resizeOpen).width, 'md')">Medium</button>
-        <button class="resize-opt" :class="getWidgetSize(resizeOpen).height === 'lg' && 'active'" @click="setWidgetSize(resizeOpen, getWidgetSize(resizeOpen).width, 'lg')">Large</button>
-      </div>
-    </div>
+       @click.outside="resizingWidget = null"
+       x-effect="if (resizingWidget) { const el = document.querySelector('[data-widget-id=\'' + resizingWidget + '\']'); if (el) { const r = el.getBoundingClientRect(); $el.style.position = 'fixed'; $el.style.top = (r.top + r.height/2) + 'px'; $el.style.left = (r.left + r.width/2) + 'px'; $el.style.transform = 'translate(-50%, -50%)'; } }"
+       style="display:none;z-index:9999;">
+    <template x-for="r in [1,2,3]"><template x-for="c in [1,2,3]"><div class="resize-grid-cell" :class="c <= previewCols && r <= previewRows && 'active'" @mouseenter="previewCols = c; previewRows = r" @click="setWidgetGridSize(resizingWidget, c, r)"></div></template></template>
+    <div class="resize-grid-label" x-text="previewCols + '\u00D7' + previewRows"></div>
   </div>
 
   <!-- Add Bookmark Modal -->
@@ -2422,8 +2426,9 @@
         widgetVisibility: {},
         collapsedWidgets: {},
         fullscreenContent: null,
-        resizeOpen: null,
-        resizeDropdownStyle: '',
+        resizingWidget: null,
+        previewCols: 1,
+        previewRows: 1,
         bgGradient: '',
         showShortcuts: false,
         refreshingAll: false,
@@ -2469,7 +2474,7 @@
               if (this.showStockModal) { this.showStockModal = false; return; }
               if (this.showServiceModal) { this.showServiceModal = false; return; }
               if (this.showSettingsModal) { this.showSettingsModal = false; return; }
-              if (this.resizeOpen) { this.resizeOpen = null; return; }
+              if (this.resizingWidget) { this.resizingWidget = null; return; }
             }
             if (isInput) return;
             if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
@@ -2723,7 +2728,7 @@
             const map = {};
             const vis = {};
             for (const item of items) {
-              map[item.widget_id] = { width: item.width || 1, height: item.height || 'auto' };
+              map[item.widget_id] = { width: item.width || 1, height: item.height || 1 };
               vis[item.widget_id] = item.visible !== undefined ? !!item.visible : true;
             }
             this.widgetSizes = map;
@@ -2758,38 +2763,183 @@
           for (const [id, size] of Object.entries(this.widgetSizes)) {
             const el = grid.querySelector(`[data-widget-id="${id}"]`);
             if (!el) continue;
-            el.setAttribute('data-width', size.width);
-            el.setAttribute('data-height', size.height);
+            el.setAttribute('data-grid-w', size.width || 1);
+            el.setAttribute('data-grid-h', size.height || 1);
             el.style.gridColumn = size.width > 1 ? `span ${size.width}` : '';
           }
         },
 
-        getWidgetSize(widgetId) {
-          return this.widgetSizes[widgetId] || { width: 1, height: 'auto' };
+        getWidgetWidth(widgetId) {
+          return (this.widgetSizes[widgetId] && this.widgetSizes[widgetId].width) || 1;
         },
 
-        async setWidgetSize(widgetId, width, height) {
-          this.widgetSizes[widgetId] = { width, height };
+        getWidgetHeight(widgetId) {
+          return (this.widgetSizes[widgetId] && this.widgetSizes[widgetId].height) || 1;
+        },
+
+        async setWidgetGridSize(widgetId, cols, rows) {
+          this.widgetSizes[widgetId] = { width: cols, height: rows };
           this.applyWidgetSizes();
+          this.resizingWidget = null;
           try {
             await fetch('/api/widget-order/sizes', {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify([{ widget_id: widgetId, width, height }]),
+              body: JSON.stringify([{ widget_id: widgetId, width: cols, height: rows }]),
             });
           } catch (e) {
             console.error('Save widget size error:', e);
           }
         },
 
-        openResize(widgetId, btnEl) {
-          if (this.resizeOpen === widgetId) {
-            this.resizeOpen = null;
+        openResize(widgetId) {
+          if (this.resizingWidget === widgetId) {
+            this.resizingWidget = null;
             return;
           }
-          const rect = btnEl.getBoundingClientRect();
-          this.resizeDropdownStyle = `top:${rect.bottom + 6}px;left:${rect.left}px;margin-top:0;`;
-          this.resizeOpen = widgetId;
+          const cur = this.widgetSizes[widgetId] || { width: 1, height: 1 };
+          this.previewCols = cur.width || 1;
+          this.previewRows = cur.height || 1;
+          this.resizingWidget = widgetId;
+        },
+
+        getWidgetSummary(widgetId) {
+          try {
+            switch (widgetId) {
+              case 'weather': {
+                const w = this.weather.data;
+                if (!w) return 'Loading...';
+                return (w.temp != null ? w.temp + '\u00B0C' : '') + (w.description ? ' ' + w.description : '');
+              }
+              case 'stocks': {
+                if (!this.stocks.data || !this.stocks.data.length) return 'Loading...';
+                return this.stocks.data.slice(0, 3).map(s => s.symbol + ' $' + (s.price ? s.price.toFixed(2) : '--')).join(' \u00B7 ');
+              }
+              case 'rss': {
+                if (!this.rss.data) return 'Loading...';
+                return this.rss.data.length + ' items';
+              }
+              case 'bookmarks': {
+                if (!this.bookmarks.data) return 'Loading...';
+                return this.bookmarks.data.length + ' bookmarks';
+              }
+              case 'services': {
+                if (!this.services.data || !this.services.data.length) return 'Loading...';
+                const online = this.services.data.filter(s => s.online).length;
+                return online + '/' + this.services.data.length + ' online';
+              }
+              case 'qbit': {
+                const el = document.querySelector('[data-widget-id="qbit"]');
+                if (!el) return '';
+                const scope = Alpine.$data(el);
+                if (!scope || !scope.qbit || !scope.qbit.data) return 'Loading...';
+                const d = scope.qbit.data;
+                return (d.seeding || 0) + ' seeding \u00B7 ' + (d.downloading || 0) + ' downloading';
+              }
+              case 'truenas': {
+                const el = document.querySelector('[data-widget-id="truenas"]');
+                if (!el) return '';
+                const scope = Alpine.$data(el);
+                if (!scope || !scope.nas || !scope.nas.data) return 'Loading...';
+                return 'Pools healthy';
+              }
+              case 'media': {
+                const el = document.querySelector('[data-widget-id="media"]');
+                if (!el) return '';
+                const scope = Alpine.$data(el);
+                if (!scope || !scope.continueW) return 'Loading...';
+                return (scope.continueW.data ? scope.continueW.data.length : 0) + ' continue watching';
+              }
+              case 'alfred-apps': {
+                const el = document.querySelector('[data-widget-id="alfred-apps"]');
+                if (!el) return '';
+                const scope = Alpine.$data(el);
+                if (!scope || !scope.apps) return 'Loading...';
+                const running = scope.apps.filter(a => a.status === 'up').length;
+                return running + '/' + scope.apps.length + ' running';
+              }
+              case 'calendar': {
+                const el = document.querySelector('[data-widget-id="calendar"]');
+                if (!el) return '';
+                const scope = Alpine.$data(el);
+                if (!scope || !scope.events) return 'Loading...';
+                if (scope.events.length === 0) return 'No events';
+                const now = new Date();
+                const upcoming = scope.events.find(e => e.start && new Date(e.start) > now);
+                if (upcoming) {
+                  const diff = Math.round((new Date(upcoming.start) - now) / 3600000);
+                  if (diff <= 0) return upcoming.title || 'Event now';
+                  return (upcoming.title || 'Event') + ' in ' + diff + 'h';
+                }
+                return scope.events.length + ' events';
+              }
+              case 'fitness': {
+                const el = document.querySelector('[data-widget-id="fitness"]');
+                if (!el) return '';
+                const scope = Alpine.$data(el);
+                if (!scope || !scope.fitness || !scope.fitness.data) return 'Loading...';
+                const d = scope.fitness.data;
+                if (d.latestWeight) return 'Weight: ' + d.latestWeight + 'kg';
+                return 'Fitness data loaded';
+              }
+              case 'whats-next': {
+                const el = document.querySelector('[data-widget-id="whats-next"]');
+                if (!el) return '';
+                const scope = Alpine.$data(el);
+                if (!scope || !scope.movie) return 'Loading...';
+                return scope.movie.title || scope.movie.name || 'No suggestion';
+              }
+              case 'frigate': {
+                const el = document.querySelector('[data-widget-id="frigate"]');
+                if (!el) return '';
+                const scope = Alpine.$data(el);
+                if (!scope || !scope.cameras) return 'Loading...';
+                return scope.cameras.length + ' cameras';
+              }
+              case 'network-throughput': {
+                const el = document.querySelector('[data-widget-id="network-throughput"]');
+                if (!el) return '';
+                const scope = Alpine.$data(el);
+                if (!scope || !scope.net) return 'Loading...';
+                const n = scope.net;
+                return (n.downloadMbps ? n.downloadMbps.toFixed(1) : '0') + '\u2193 ' + (n.uploadMbps ? n.uploadMbps.toFixed(1) : '0') + '\u2191 Mbps';
+              }
+              case 'adguard': {
+                const el = document.querySelector('[data-widget-id="adguard"]');
+                if (!el) return '';
+                const scope = Alpine.$data(el);
+                if (!scope || !scope.ag || !scope.ag.stats) return 'Loading...';
+                const s = scope.ag.stats;
+                const fmtK = v => v >= 1000 ? (v/1000).toFixed(0) + 'K' : (v || 0);
+                return fmtK(s.num_dns_queries) + ' queries \u00B7 ' + fmtK(s.num_blocked_filtering) + ' blocked';
+              }
+              case 'notes': {
+                const el = document.querySelector('[data-widget-id="notes"]');
+                if (!el) return '';
+                const scope = Alpine.$data(el);
+                if (!scope || !scope.note) return '';
+                const txt = (scope.note.content || '').trim();
+                return txt ? txt.substring(0, 30) + (txt.length > 30 ? '...' : '') : 'Empty note';
+              }
+              case 'shopping': {
+                const el = document.querySelector('[data-widget-id="shopping"]');
+                if (!el) return '';
+                const scope = Alpine.$data(el);
+                if (!scope || !scope.items) return 'Loading...';
+                const unchecked = scope.items.filter(i => !i.checked).length;
+                return unchecked + ' items';
+              }
+              case 'speedtest': {
+                const el = document.querySelector('[data-widget-id="speedtest"]');
+                if (!el) return '';
+                const scope = Alpine.$data(el);
+                if (!scope || !scope.st || !scope.st.latest) return 'Loading...';
+                const l = scope.st.latest;
+                return (l.download ? l.download.toFixed(0) : '--') + '\u2193 ' + (l.upload ? l.upload.toFixed(0) : '--') + '\u2191 Mbps';
+              }
+              default: return '';
+            }
+          } catch(e) { return ''; }
         },
 
         // === Widget Visibility ===
@@ -2831,7 +2981,7 @@
 
         exitEditMode() {
           this.editMode = false;
-          this.resizeOpen = null;
+          this.resizingWidget = null;
           this.destroySortables();
         },
 
