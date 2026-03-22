@@ -429,11 +429,8 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 /* ===== Grid Layout — Card Placement ===== */
-.weather-card { grid-column: 1; grid-row: 1; }
-.stocks-card { grid-column: 1; grid-row: 2; }
-.rss-card { grid-column: 2; grid-row: 1 / span 2; }
-.bookmarks-card { grid-column: 3; grid-row: 1; }
-.services-card { grid-column: 3; grid-row: 2; }
+/* Widget cards flow naturally via DOM order from fetchWidgetConfig().
+   Only hero-card and media-card get explicit full-width spans. */
 
 /* ===== Hero Card ===== */
 .hero-card {
@@ -499,6 +496,36 @@ body::-webkit-scrollbar-thumb:hover {
   font-size: 36px;
   font-weight: 300;
   color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hero-weather-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hero-weather-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.hero-forecast {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  justify-content: center;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.hero-forecast .forecast-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 60px;
 }
 .hero-health {
   display: flex;
@@ -1121,12 +1148,6 @@ body::-webkit-scrollbar-thumb:hover {
     grid-template-columns: 1fr 1fr;
   }
 
-  .weather-card { grid-column: 1; grid-row: 1; }
-  .stocks-card { grid-column: 2; grid-row: 1; }
-  .rss-card { grid-column: 1 / span 2; grid-row: 2; }
-  .bookmarks-card { grid-column: 1; grid-row: 3; }
-  .services-card { grid-column: 2; grid-row: 3; }
-
   .rss-body {
     max-height: 400px;
   }
@@ -1137,15 +1158,6 @@ body::-webkit-scrollbar-thumb:hover {
     grid-template-columns: 1fr;
     padding: 12px 16px 40px;
     gap: 12px;
-  }
-
-  .weather-card,
-  .stocks-card,
-  .rss-card,
-  .bookmarks-card,
-  .services-card {
-    grid-column: 1;
-    grid-row: auto;
   }
 
   .search-header {
@@ -1170,11 +1182,6 @@ body::-webkit-scrollbar-thumb:hover {
 
   .rss-body {
     max-height: 500px;
-  }
-
-  .media-card {
-    grid-column: 1;
-    grid-row: auto;
   }
 
   .card-header {
@@ -1614,13 +1621,7 @@ body::-webkit-scrollbar-thumb:hover {
   overflow: hidden;
 }
 
-/* Responsive: media card on tablet */
-@media (max-width: 1279px) {
-  .media-card {
-    grid-column: 1 / span 2;
-    grid-row: 4;
-  }
-}
+/* media-card always spans full width via grid-column: 1 / -1 in its base rule */
 
 /* ===== qBittorrent ===== */
 .qbit-content {
@@ -3070,7 +3071,7 @@ body.edit-mode-active .dashboard-grid .hero-card {
   }
 
   body.edit-mode-active .media-card {
-    grid-column: auto !important;
+    grid-column: 1 / -1 !important;
   }
 }
 
