@@ -111,7 +111,7 @@ router.get('/favicon', async (req, res) => {
   if (!url) return res.status(400).json({ error: 'url required' });
   if (!isUrlSafe(url)) return res.status(400).json({ error: 'Invalid or blocked URL' });
   try {
-    const fetch = globalThis.fetch || require('node-fetch');
+    const fetch = require('node-fetch');
     const domain = new URL(url).hostname;
     // Try Google first
     const gResp = await fetch(`https://www.google.com/s2/favicons?sz=64&domain=${domain}`, { timeout: 3000 });
