@@ -943,114 +943,7 @@
     </section>
 
     <!-- Fitness -->
-    <section class="card fitness-card" data-widget-id="fitness" x-show="editMode || widgetVisible('fitness')" x-data="{
-      fitness: { loading: true, data: null, error: false },
-      lastUpdated: null,
-      async fetchFitness() {
-        try {
-          const r = await fetch('/api/fitness/summary');
-          if (!r.ok) throw new Error('fetch failed');
-          const d = await r.json();
-          if (d.error) throw new Error('api error');
-          this.fitness.data = d;
-          this.fitness.error = false;
-          this.lastUpdated = Date.now();
-          this.$nextTick(() => this.renderWeightChart());
-        } catch(e) {
-          console.error('Fitness error:', e);
-          this.fitness.error = true;
-        }
-        this.fitness.loading = false;
-      },
-      nutritionPercent(current, target) {
-        if (!target || target === 0) return 0;
-        return Math.min(Math.round((current / target) * 100), 100);
-      },
-      formatWorkoutDate(d) {
-        if (!d) return '';
-        const dt = new Date(d);
-        const now = new Date();
-        const diff = Math.floor((now - dt) / 86400000);
-        if (diff === 0) return 'Today';
-        if (diff === 1) return 'Yesterday';
-        return diff + 'd ago';
-      },
-      getWeight(obj) {
-        if (!obj) return null;
-        if (Array.isArray(obj)) return obj[0]?.weight || null;
-        return obj.weight || null;
-      },
-      weightTrendArrow() {
-        const hist = this.fitness.data?.weightHistory;
-        if (!hist || hist.length < 2) return '';
-        const latest = hist[hist.length - 1].weight;
-        const prev = hist[hist.length - 2].weight;
-        if (latest > prev) return String.fromCharCode(0x2191);
-        if (latest < prev) return String.fromCharCode(0x2193);
-        return String.fromCharCode(0x2192);
-      },
-      weightTrendClass() {
-        const hist = this.fitness.data?.weightHistory;
-        if (!hist || hist.length < 2) return '';
-        const latest = hist[hist.length - 1].weight;
-        const prev = hist[hist.length - 2].weight;
-        if (latest > prev) return 'trend-up';
-        if (latest < prev) return 'trend-down';
-        return 'trend-flat';
-      },
-      renderWeightChart() {
-        const svg = this.$refs.weightSvg;
-        if (!svg) return;
-        const hist = this.fitness.data?.weightHistory;
-        if (!hist || hist.length < 2) { svg.innerHTML = ''; return; }
-        const W = 240, H = 60, pad = 4;
-        const weights = hist.map(h => h.weight);
-        const min = Math.min(...weights) - 0.3;
-        const max = Math.max(...weights) + 0.3;
-        const range = max - min || 1;
-        const pts = weights.map((w, i) => {
-          const x = pad + (i / (weights.length - 1)) * (W - pad * 2);
-          const y = H - pad - ((w - min) / range) * (H - pad * 2);
-          return { x, y, w };
-        });
-        const line = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
-        const areaPath = line + ' L' + pts[pts.length-1].x.toFixed(1) + ',' + (H - pad) + ' L' + pts[0].x.toFixed(1) + ',' + (H - pad) + ' Z';
-        const last = pts[pts.length - 1];
-        svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
-        svg.innerHTML = '<defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#00cec9" stop-opacity="0.3"/><stop offset="100%" stop-color="#00cec9" stop-opacity="0.02"/></linearGradient></defs>'
-          + '<path d="' + areaPath + '" fill="url(#wg)"/>'
-          + '<path d="' + line + '" fill="none" stroke="#00cec9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
-          + '<circle cx="' + last.x.toFixed(1) + '" cy="' + last.y.toFixed(1) + '" r="3" fill="#00cec9"/>'
-          + '<text x="' + last.x.toFixed(1) + '" y="' + (last.y - 6).toFixed(1) + '" text-anchor="middle" fill="var(--text)" font-size="9" font-weight="600">' + last.w + '</text>';
-      },
-      weeklyWorkouts() {
-        const wl = this.fitness.data?.weeklyLog;
-        if (!wl) return '--';
-        return wl.totalWorkouts ?? wl.workouts ?? '--';
-      },
-      weeklyAvgCalories() {
-        const wl = this.fitness.data?.weeklyLog;
-        if (!wl) return '--';
-        return wl.avgCalories ? Math.round(wl.avgCalories) : '--';
-      },
-      weeklyWeightChange() {
-        const hist = this.fitness.data?.weightHistory;
-        if (!hist || hist.length < 2) return null;
-        const diff = (hist[hist.length - 1].weight - hist[0].weight).toFixed(1);
-        return (diff > 0 ? '+' : '') + diff;
-      },
-      macroData() {
-        const d = this.fitness.data?.daily;
-        if (!d || !d.totals) return null;
-        const t = d.totals;
-        const tgt = d.targets || {};
-        const macros = [];
-        if (t.carbs != null) macros.push({ label: 'Carbs', value: Math.round(t.carbs), target: tgt.carbs, unit: 'g', cls: 'carbs' });
-        if (t.fat != null) macros.push({ label: 'Fat', value: Math.round(t.fat), target: tgt.fat, unit: 'g', cls: 'fat' });
-        if (t.protein != null) macros.push({ label: 'Protein', value: Math.round(t.protein), target: tgt.protein, unit: 'g', cls: 'protein' });
-        return macros.length > 0 ? macros : null;
-      }
-    }" x-init="fetchFitness(); setInterval(() => fetchFitness(), 300000)">
+    <section class="card fitness-card" data-widget-id="fitness" x-show="editMode || widgetVisible('fitness')" x-data="fitnessWidget()" x-init="fetchFitness(); setInterval(() => fetchFitness(), 300000)">
       <div class="card-header">
         <span class="drag-handle" x-show="editMode">&#x2807;</span>
         <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
@@ -1302,7 +1195,7 @@
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['frigate']" @click="toggleCollapse('frigate')">
         <span class="drag-handle" x-show="editMode">&#x2817;</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
-        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('frigate')" :title="widgetVisible('frigate') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('frigate') ? 👁 : 👁\u200d🗨"></span></button>
+        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('frigate')" :title="widgetVisible('frigate') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('frigate') ? '\u{1F441}' : '\u{1F441}\u200D\u{1F5E8}'"></span></button>
         <span class="card-icon">&#x1F4F7;</span>
         <h2 class="card-title">Cameras</h2>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['frigate'] && 'collapsed'">&#9660;</span>
@@ -1444,7 +1337,7 @@
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['network-throughput']" @click="toggleCollapse('network-throughput')">
         <span class="drag-handle" x-show="editMode">&#x2817;</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
-        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('network-throughput')" :title="widgetVisible('network-throughput') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('network-throughput') ? 👁 : 👁\u200d🗨"></span></button>
+        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('network-throughput')" :title="widgetVisible('network-throughput') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('network-throughput') ? '\u{1F441}' : '\u{1F441}\u200D\u{1F5E8}'"></span></button>
         <span class="card-icon">&#x1F310;</span>
         <h2 class="card-title">Network</h2>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['network-throughput'] && 'collapsed'">&#9660;</span>
@@ -2917,6 +2810,117 @@
           if (h > 0) return h + 'h ' + m + 'm';
           return m + 'm ' + s + 's';
         },
+      };
+    }
+
+    function fitnessWidget() {
+      return {
+        fitness: { loading: true, data: null, error: false },
+        lastUpdated: null,
+        async fetchFitness() {
+          try {
+            const r = await fetch('/api/fitness/summary');
+            if (!r.ok) throw new Error('fetch failed');
+            const d = await r.json();
+            if (d.error) throw new Error('api error');
+            this.fitness.data = d;
+            this.fitness.error = false;
+            this.lastUpdated = Date.now();
+            this.$nextTick(() => this.renderWeightChart());
+          } catch(e) {
+            console.error('Fitness error:', e);
+            this.fitness.error = true;
+          }
+          this.fitness.loading = false;
+        },
+        nutritionPercent(current, target) {
+          if (!target || target === 0) return 0;
+          return Math.min(Math.round((current / target) * 100), 100);
+        },
+        formatWorkoutDate(d) {
+          if (!d) return '';
+          const dt = new Date(d);
+          const now = new Date();
+          const diff = Math.floor((now - dt) / 86400000);
+          if (diff === 0) return 'Today';
+          if (diff === 1) return 'Yesterday';
+          return diff + 'd ago';
+        },
+        getWeight(obj) {
+          if (!obj) return null;
+          if (Array.isArray(obj)) return obj[0]?.weight || null;
+          return obj.weight || null;
+        },
+        weightTrendArrow() {
+          const hist = this.fitness.data?.weightHistory;
+          if (!hist || hist.length < 2) return '';
+          const latest = hist[hist.length - 1].weight;
+          const prev = hist[hist.length - 2].weight;
+          if (latest > prev) return '\u2191';
+          if (latest < prev) return '\u2193';
+          return '\u2192';
+        },
+        weightTrendClass() {
+          const hist = this.fitness.data?.weightHistory;
+          if (!hist || hist.length < 2) return '';
+          const latest = hist[hist.length - 1].weight;
+          const prev = hist[hist.length - 2].weight;
+          if (latest > prev) return 'trend-up';
+          if (latest < prev) return 'trend-down';
+          return 'trend-flat';
+        },
+        renderWeightChart() {
+          const svg = this.$refs.weightSvg;
+          if (!svg) return;
+          const hist = this.fitness.data?.weightHistory;
+          if (!hist || hist.length < 2) { svg.innerHTML = ''; return; }
+          const W = 240, H = 60, pad = 4;
+          const weights = hist.map(h => h.weight);
+          const min = Math.min(...weights) - 0.3;
+          const max = Math.max(...weights) + 0.3;
+          const range = max - min || 1;
+          const pts = weights.map((w, i) => {
+            const x = pad + (i / (weights.length - 1)) * (W - pad * 2);
+            const y = H - pad - ((w - min) / range) * (H - pad * 2);
+            return { x, y, w };
+          });
+          const line = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+          const areaPath = line + ' L' + pts[pts.length-1].x.toFixed(1) + ',' + (H - pad) + ' L' + pts[0].x.toFixed(1) + ',' + (H - pad) + ' Z';
+          const last = pts[pts.length - 1];
+          svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+          svg.innerHTML = '<defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#00cec9" stop-opacity="0.3"/><stop offset="100%" stop-color="#00cec9" stop-opacity="0.02"/></linearGradient></defs>'
+            + '<path d="' + areaPath + '" fill="url(#wg)"/>'
+            + '<path d="' + line + '" fill="none" stroke="#00cec9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+            + '<circle cx="' + last.x.toFixed(1) + '" cy="' + last.y.toFixed(1) + '" r="3" fill="#00cec9"/>'
+            + '<text x="' + last.x.toFixed(1) + '" y="' + (last.y - 6).toFixed(1) + '" text-anchor="middle" fill="var(--text)" font-size="9" font-weight="600">' + last.w + '</text>';
+        },
+        weeklyWorkouts() {
+          const wl = this.fitness.data?.weeklyLog;
+          if (!wl) return '--';
+          return wl.totalWorkouts ?? wl.workouts ?? '--';
+        },
+        weeklyAvgCalories() {
+          const wl = this.fitness.data?.weeklyLog;
+          if (!wl) return '--';
+          return wl.avgCalories ? Math.round(wl.avgCalories) : '--';
+        },
+        weeklyWeightChange() {
+          const hist = this.fitness.data?.weightHistory;
+          if (!hist || hist.length < 2) return null;
+          const diff = (hist[hist.length - 1].weight - hist[0].weight).toFixed(1);
+          return (diff > 0 ? '+' : '') + diff;
+        },
+        macroData() {
+          const d = this.fitness.data?.daily;
+          if (!d || !d.totals) return null;
+          const t = d.totals;
+          const tgt = d.targets || {};
+          const macros = [];
+          if (t.carbs != null) macros.push({ label: 'Carbs', value: Math.round(t.carbs), target: tgt.carbs, unit: 'g', cls: 'carbs' });
+          if (t.fat != null) macros.push({ label: 'Fat', value: Math.round(t.fat), target: tgt.fat, unit: 'g', cls: 'fat' });
+          if (t.protein != null) macros.push({ label: 'Protein', value: Math.round(t.protein), target: tgt.protein, unit: 'g', cls: 'protein' });
+          return macros.length > 0 ? macros : null;
+        }
       };
     }
 
