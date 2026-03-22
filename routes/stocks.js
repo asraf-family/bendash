@@ -6,6 +6,23 @@ const db = require('../db');
 let cache = { data: null, ts: 0 };
 const CACHE_TTL = 5 * 60 * 1000; // 5 min
 
+// Check if US stock market is currently open
+// Mon-Fri, 9:30 AM - 4:00 PM Eastern Time
+function isMarketOpen() {
+  const now = new Date();
+  // Convert to Eastern Time
+  const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const day = et.getDay(); // 0=Sun, 6=Sat
+  const hours = et.getHours();
+  const minutes = et.getMinutes();
+  const timeInMinutes = hours * 60 + minutes;
+
+  const isWeekday = day >= 1 && day <= 5;
+  const isDuringHours = timeInMinutes >= 570 && timeInMinutes < 960; // 9:30=570, 16:00=960
+
+  return { usMarketOpen: isWeekday && isDuringHours };
+}
+
 async function fetchQuote(symbol) {
   try {
     // Fetch 1-month daily data (includes current price + history)
@@ -58,10 +75,17 @@ router.get('/', async (req, res) => {
       return res.json(cache.data);
     }
 
-    const results = await Promise.all(symbols.map(fetchQuote));
+    // Process in batches of 3 to avoid Yahoo rate limiting
+    const results = [];
+    for (let i = 0; i < symbols.length; i += 3) {
+      const batch = symbols.slice(i, i + 3);
+      const batchResults = await Promise.all(batch.map(fetchQuote));
+      results.push(...batchResults);
+    }
 
-    cache = { data: results, key: cacheKey, ts: Date.now() };
-    res.json(results);
+    const response = { stocks: results, ...isMarketOpen() };
+    cache = { data: response, key: cacheKey, ts: Date.now() };
+    res.json(response);
   } catch (err) {
     console.error('Stocks error:', err.message);
     res.status(500).json({ error: 'Failed to fetch stock data' });

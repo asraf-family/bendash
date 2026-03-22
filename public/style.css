@@ -215,6 +215,14 @@ a {
   padding: 16px 20px 20px;
 }
 
+.card-updated {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.3);
+  text-align: right;
+  padding-top: 8px;
+  margin-top: auto;
+}
+
 /* ===== Grid Layout — Card Placement ===== */
 .weather-card { grid-column: 1; grid-row: 1; }
 .stocks-card { grid-column: 1; grid-row: 2; }
@@ -364,6 +372,18 @@ a {
 
 .stock-change.negative {
   color: var(--red);
+}
+
+.market-badge.closed {
+  font-size: 10px;
+  font-weight: 600;
+  color: #b8860b;
+  background: rgba(184, 134, 11, 0.12);
+  padding: 2px 7px;
+  border-radius: 4px;
+  margin-left: 6px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
 }
 
 /* ===== RSS Feed ===== */

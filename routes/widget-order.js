@@ -2,11 +2,23 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// GET widget order
+// Internal: fetch merged widget order + sizes
+function getWidgetOrderWithSizes() {
+  return db.prepare(`
+    SELECT wo.widget_id, wo.sort_order,
+           COALESCE(ws.width, 1) AS width,
+           COALESCE(ws.height, 'auto') AS height,
+           1 AS visible
+    FROM widget_order wo
+    LEFT JOIN widget_sizes ws ON wo.widget_id = ws.widget_id
+    ORDER BY wo.sort_order ASC
+  `).all();
+}
+
+// GET widget order (merged with sizes)
 router.get('/', (req, res) => {
   try {
-    const order = db.prepare('SELECT * FROM widget_order ORDER BY sort_order ASC').all();
-    res.json(order);
+    res.json(getWidgetOrderWithSizes());
   } catch (err) {
     console.error('Widget order GET error:', err.message);
     res.status(500).json({ error: 'Failed to fetch widget order' });
@@ -35,11 +47,10 @@ router.put('/', (req, res) => {
   }
 });
 
-// GET widget sizes
+// GET widget sizes (backward compat — returns same merged data)
 router.get('/sizes', (req, res) => {
   try {
-    const sizes = db.prepare('SELECT * FROM widget_sizes').all();
-    res.json(sizes);
+    res.json(getWidgetOrderWithSizes());
   } catch (err) {
     console.error('Widget sizes GET error:', err.message);
     res.status(500).json({ error: 'Failed to fetch widget sizes' });

@@ -52,6 +52,12 @@ db.exec(`
     width INTEGER DEFAULT 1,
     height TEXT DEFAULT 'auto'
   );
+
+  CREATE TABLE IF NOT EXISTS cache (
+    key TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    expires_at INTEGER NOT NULL
+  );
 `);
 
 // Seed default bookmarks if table is empty
@@ -124,5 +130,24 @@ if (serviceCount.c === 0) {
   insertServices(defaultServices);
   console.log('Seeded default services');
 }
+
+// Cache helpers
+function getCache(key) {
+  const row = db.prepare('SELECT data FROM cache WHERE key = ? AND expires_at > ?').get(key, Date.now());
+  return row ? JSON.parse(row.data) : null;
+}
+
+function setCache(key, data, ttlMs) {
+  db.prepare('INSERT OR REPLACE INTO cache (key, data, expires_at) VALUES (?, ?, ?)').run(key, JSON.stringify(data), Date.now() + ttlMs);
+}
+
+function clearCache(key) {
+  db.prepare('DELETE FROM cache WHERE key = ?').run(key);
+}
+
+// Attach cache helpers to db export for convenience
+db.getCache = getCache;
+db.setCache = setCache;
+db.clearCache = clearCache;
 
 module.exports = db;
