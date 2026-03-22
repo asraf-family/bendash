@@ -11,6 +11,18 @@
   <title>BenDash</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/lib/sortable.min.js"></script>
+  <script>
+    function timeAgo(dateStr) {
+      if (!dateStr) return '';
+      const now = Date.now();
+      const then = typeof dateStr === 'number' ? dateStr : new Date(dateStr).getTime();
+      const diff = Math.floor((now - then) / 1000);
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+      if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+      return Math.floor(diff / 86400) + 'd ago';
+    }
+  </script>
   <script defer src="/lib/alpine.min.js"></script>
 </head>
 <body x-data="dashboard()" x-init="init(); applyBackground(); setInterval(() => applyBackground(), 3600000)" :class="editMode && 'edit-mode-active'" :style="bgGradient">
@@ -376,7 +388,7 @@
         <template x-if="!qbit.loading && qbit.data && !qbit.data.connected">
           <div class="error-state"><p>qBittorrent offline</p></div>
         </template>
-      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + $root.timeAgo(lastUpdated)"></div>
+      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)"></div>
       </div>
     </section>
 
@@ -443,7 +455,7 @@
         <template x-if="!nas.loading && nas.error">
           <div class="error-state"><p x-text="nas.error"></p></div>
         </template>
-      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + $root.timeAgo(lastUpdated)"></div>
+      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)"></div>
       </div>
     </section>
 
@@ -520,7 +532,7 @@
                     </div>
                   </div>
                   <div class="media-poster-title" x-text="item.name"></div>
-                  <div class="media-poster-sub" x-text="item.dateCreated ? timeAgoMedia(item.dateCreated) : ''"></div>
+                  <div class="media-poster-sub" x-text="item.dateCreated ? timeAgo(item.dateCreated) : ''"></div>
                 </div>
               </template>
             </div>
@@ -584,7 +596,7 @@
           </template>
         </div>
 
-      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + $root.timeAgo(lastUpdated)"></div>
+      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)"></div>
       </div>
     </section>
 
@@ -637,7 +649,7 @@
             </template>
           </div>
         </template>
-      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + $root.timeAgo(lastUpdated)"></div>
+      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)"></div>
       </div>
     </section>
 
@@ -1255,16 +1267,6 @@
           }).join(' ');
         },
 
-        timeAgo(dateStr) {
-          if (!dateStr) return '';
-          const now = Date.now();
-          const then = typeof dateStr === 'number' ? dateStr : new Date(dateStr).getTime();
-          const diff = Math.floor((now - then) / 1000);
-          if (diff < 60) return 'just now';
-          if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
-          if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
-          return Math.floor(diff / 86400) + 'd ago';
-        },
       };
     }
 
@@ -1322,16 +1324,6 @@
           } catch(e) { console.error('Media stats error:', e); }
         },
 
-        timeAgoMedia(dateStr) {
-          if (!dateStr) return '';
-          const now = new Date();
-          const then = new Date(dateStr);
-          const diff = Math.floor((now - then) / 1000);
-          if (diff < 60) return 'just now';
-          if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
-          if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
-          return Math.floor(diff / 86400) + 'd ago';
-        },
       };
     }
 
