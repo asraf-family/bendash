@@ -1,5 +1,5 @@
 const express = require('express');
-const fetch = globalThis.fetch || require('node-fetch');
+const fetch = require('node-fetch');
 const https = require('https');
 const router = express.Router();
 

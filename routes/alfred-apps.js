@@ -1,5 +1,5 @@
 const express = require('express');
-const fetch = globalThis.fetch || require('node-fetch');
+const fetch = require('node-fetch');
 const router = express.Router();
 
 const CP_URL = process.env.CONTROL_PANEL_URL || 'http://127.0.0.1:3500';

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const fetch = globalThis.fetch || require('node-fetch');
+const fetch = require('node-fetch');
 const https = require('https');
 const db = require('../db');
 const { validateLength, validateUrl } = require('../lib/validate');
