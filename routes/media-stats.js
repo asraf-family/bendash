@@ -1,5 +1,5 @@
 const express = require('express');
-const fetch = require('node-fetch');
+const fetch = globalThis.fetch || require('node-fetch');
 const router = express.Router();
 
 const JF_URL = process.env.JELLYFIN_URL;
@@ -64,14 +64,24 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/media-stats/random — random unwatched movie
+// GET /api/media-stats/random — random unwatched movie (with optional filters)
 router.get('/random', async (req, res) => {
   try {
     if (!JF_URL || !JF_KEY || !JF_USER) {
       return res.json(null);
     }
 
-    const url = `${JF_URL}/Users/${JF_USER}/Items?IncludeItemTypes=Movie&IsPlayed=false&Recursive=true&SortBy=Random&Limit=1&Fields=Overview,PrimaryImageTag,CommunityRating,ProductionYear&api_key=${JF_KEY}`;
+    let url = `${JF_URL}/Users/${JF_USER}/Items?IncludeItemTypes=Movie&IsPlayed=false&Recursive=true&SortBy=Random&Limit=1&Fields=Overview,PrimaryImageTag,CommunityRating,ProductionYear&api_key=${JF_KEY}`;
+
+    const { genre, minRating, maxRuntime } = req.query;
+    if (genre) url += `&Genres=${encodeURIComponent(genre)}`;
+    if (minRating) url += `&MinCommunityRating=${encodeURIComponent(minRating)}`;
+    if (maxRuntime) {
+      // Jellyfin expects MaxRuntime in ticks (1 min = 600000000 ticks)
+      const ticks = Number(maxRuntime) * 600000000;
+      url += `&MaxRuntime=${ticks}`;
+    }
+
     const resp = await fetch(url, { headers: jfHeaders() });
     const data = await resp.json();
     const item = (data.Items || [])[0];

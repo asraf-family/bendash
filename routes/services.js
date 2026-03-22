@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const fetch = require('node-fetch');
+const fetch = globalThis.fetch || require('node-fetch');
 const https = require('https');
 const db = require('../db');
+const { validateLength, validateUrl } = require('../lib/validate');
 
 // Allow self-signed certs for internal services
 const agent = new https.Agent({ rejectUnauthorized: false });
@@ -166,6 +167,12 @@ router.post('/', (req, res) => {
     if (!name || !url) {
       return res.status(400).json({ error: 'name and url are required' });
     }
+    if (!validateLength(name, 1, 100)) {
+      return res.status(400).json({ error: 'name must be between 1 and 100 characters' });
+    }
+    if (!validateUrl(url)) {
+      return res.status(400).json({ error: 'url must start with http:// or https://' });
+    }
 
     const maxOrder = db.prepare('SELECT MAX(sort_order) as m FROM services').get();
     const sortOrder = (maxOrder.m || 0) + 1;
@@ -216,6 +223,38 @@ router.put('/reorder', (req, res) => {
   } catch (err) {
     console.error('Services reorder error:', err.message);
     res.status(500).json({ error: 'Failed to reorder services' });
+  }
+});
+
+// POST ping a single service by ID (no cache)
+router.post('/:id/ping', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const service = db.prepare('SELECT * FROM services WHERE id = ?').get(id);
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+    const result = await pingService(service);
+    checkTransition(result);
+    recordPing(result);
+
+    // Attach uptime + history
+    result.uptimePercent = getUptimePercent(result.id);
+    try {
+      result.history = db.prepare(
+        "SELECT online, response_time as responseTime, timestamp FROM service_history WHERE service_id = ? AND timestamp >= datetime('now', '-24 hours') ORDER BY timestamp ASC"
+      ).all(result.id);
+    } catch (err) {
+      result.history = [];
+    }
+
+    // Invalidate cache so next full fetch is fresh
+    cache = { data: null, ts: 0 };
+
+    res.json(result);
+  } catch (err) {
+    console.error('Service ping error:', err.message);
+    res.status(500).json({ error: 'Failed to ping service' });
   }
 });
 

@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const fetch = require('node-fetch');
+const fetch = globalThis.fetch || require('node-fetch');
 const db = require('../db');
+const { validateLength } = require('../lib/validate');
 
 let cache = { data: null, ts: 0 };
 const CACHE_TTL = 5 * 60 * 1000; // 5 min
@@ -41,9 +42,18 @@ async function fetchQuote(symbol) {
     const change = price - prevClose;
     const changePercent = prevClose ? ((change / prevClose) * 100) : 0;
 
-    // Extract closing prices for sparkline
+    // Extract closing prices and timestamps for sparkline
     const closes = result.indicators?.quote?.[0]?.close || [];
-    const history = closes.filter(v => v != null).map(v => parseFloat(v.toFixed(2)));
+    const timestamps = result.timestamp || [];
+    const history = [];
+    const historyDates = [];
+    closes.forEach((v, i) => {
+      if (v != null) {
+        history.push(parseFloat(v.toFixed(2)));
+        const ts = timestamps[i];
+        historyDates.push(ts ? new Date(ts * 1000).toISOString().slice(0, 10) : '');
+      }
+    });
 
     return {
       symbol: meta.symbol || symbol,
@@ -53,6 +63,7 @@ async function fetchQuote(symbol) {
       changePercent: parseFloat(changePercent.toFixed(2)),
       currency: meta.currency || 'USD',
       history,
+      historyDates,
     };
   } catch (err) {
     return { symbol, error: err.message };
@@ -99,8 +110,15 @@ router.post('/', (req, res) => {
     if (!symbol) {
       return res.status(400).json({ error: 'symbol is required' });
     }
+    const trimmed = symbol.trim();
+    if (!validateLength(trimmed, 1, 10)) {
+      return res.status(400).json({ error: 'symbol must be between 1 and 10 characters' });
+    }
+    if (!/^[A-Za-z0-9^]+$/.test(trimmed)) {
+      return res.status(400).json({ error: 'symbol must be alphanumeric (^ allowed)' });
+    }
 
-    const upper = symbol.trim().toUpperCase();
+    const upper = trimmed.toUpperCase();
     const existing = db.prepare('SELECT * FROM stocks WHERE symbol = ?').get(upper);
     if (existing) {
       return res.status(409).json({ error: 'Symbol already in watchlist' });

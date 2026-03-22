@@ -1,9 +1,14 @@
 const express = require('express');
-const fetch = require('node-fetch');
+const fetch = globalThis.fetch || require('node-fetch');
 const https = require('https');
 const router = express.Router();
 
+const db = require('../db');
+
 const { TRUENAS_URL, TRUENAS_API_KEY } = process.env;
+
+// Track last known pool health to avoid duplicate alerts
+const lastPoolHealth = new Map();
 
 const agent = new https.Agent({ rejectUnauthorized: false });
 
@@ -41,6 +46,21 @@ router.get('/status', async (req, res) => {
       name: a.name,
       state: a.state,
     }));
+
+    // Check pool health and insert alerts for degraded/faulted pools
+    for (const pool of poolData) {
+      const prev = lastPoolHealth.get(pool.name);
+      lastPoolHealth.set(pool.name, pool.status);
+      if (prev === pool.status) continue; // no change
+      if (pool.status !== 'ONLINE') {
+        try {
+          db.prepare('INSERT INTO alerts (type, source, message) VALUES (?, ?, ?)')
+            .run('warning', 'TrueNAS', `Pool ${pool.name} is ${pool.status}`);
+        } catch (err) {
+          console.error('TrueNAS alert insert error:', err.message);
+        }
+      }
+    }
 
     res.json({ pools: poolData, apps: appData });
   } catch (err) {

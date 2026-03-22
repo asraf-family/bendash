@@ -1,8 +1,13 @@
 const express = require('express');
-const fetch = require('node-fetch');
+const fetch = globalThis.fetch || require('node-fetch');
 const router = express.Router();
 
+const db = require('../db');
+
 const { QBIT_URL, QBIT_USER, QBIT_PASS } = process.env;
+
+// Track completed torrent hashes to avoid duplicate alerts
+const completedHashes = new Set();
 
 let sid = null;
 let loginPromise = null;
@@ -86,6 +91,17 @@ router.get('/summary', async (req, res) => {
     const seeding = torrents.filter(t => t.state === 'uploading' || t.state === 'stalledUP' || t.state === 'forcedUP').length;
     const paused = torrents.filter(t => t.state === 'pausedDL' || t.state === 'pausedUP').length;
 
+    // Detect newly completed torrents (uploading + progress === 1)
+    for (const t of torrents) {
+      if (t.state === 'uploading' && t.progress === 1 && !completedHashes.has(t.hash)) {
+        completedHashes.add(t.hash);
+        try {
+          db.prepare('INSERT INTO alerts (type, source, message) VALUES (?, ?, ?)')
+            .run('info', 'qBittorrent', `Download complete: ${t.name}`);
+        } catch (err) { console.error('qBit alert insert error:', err.message); }
+      }
+    }
+
     const totalUp = transfer.up_info_data || 0;
     const totalDl = transfer.dl_info_data || 0;
     const ratio = totalDl > 0 ? (totalUp / totalDl).toFixed(2) : '0.00';
@@ -119,6 +135,7 @@ router.get('/torrents', async (req, res) => {
       dlspeed: formatSpeed(t.dlspeed || 0),
       upspeed: formatSpeed(t.upspeed || 0),
       ratio: (t.ratio || 0).toFixed(2),
+      eta: t.eta,
       state: t.state,
       added_on: t.added_on,
     }));

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const fetch = require('node-fetch');
+const fetch = globalThis.fetch || require('node-fetch');
 
 const FITNESS_URL = process.env.FITNESS_URL || 'http://192.168.0.139:3000';
 const FITNESS_USER = process.env.FITNESS_USER || 'ben';

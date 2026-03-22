@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%230a0a0f'/%3E%3Crect x='60' y='60' width='180' height='180' rx='28' fill='%236c5ce7' opacity='0.9'/%3E%3Crect x='272' y='60' width='180' height='80' rx='28' fill='%236c5ce7' opacity='0.6'/%3E%3Crect x='272' y='168' width='180' height='72' rx='28' fill='%236c5ce7' opacity='0.4'/%3E%3Crect x='60' y='272' width='120' height='180' rx='28' fill='%236c5ce7' opacity='0.5'/%3E%3Crect x='208' y='272' width='244' height='180' rx='28' fill='%236c5ce7' opacity='0.7'/%3E%3C/svg%3E">
   <link rel="manifest" href="/manifest.json">
   <title>BenDash</title>
-  <link rel="stylesheet" href="/style.css?v=2026032201">
+  <link rel="stylesheet" href="/style.css?v=2026032202">
   <script defer src="/lib/sortable.min.js?v=2026032201"></script>
   <script>
     // Apply theme before render to prevent flash
@@ -36,6 +36,20 @@
 
   <!-- Skip to content link for keyboard users -->
   <a href="#dashboard-grid" class="skip-link">Skip to dashboard</a>
+
+  <!-- Error Boundary Banner -->
+  <div x-show="initError" x-cloak style="display:none; background:#dc2626; color:#fff; padding:1rem; text-align:center; position:fixed; top:0; left:0; right:0; z-index:9999; font-family:sans-serif;">
+    <strong>Dashboard failed to load:</strong> <span x-text="initErrorMsg"></span>
+    <button @click="initError=false; init()" style="margin-left:1rem; background:#fff; color:#dc2626; border:none; padding:0.4rem 1rem; border-radius:4px; cursor:pointer; font-weight:bold;">Retry</button>
+  </div>
+
+  <!-- Sparkline Tooltip -->
+  <div class="sparkline-tooltip"
+    x-show="sparklineTooltip.show"
+    x-cloak
+    :style="'left:' + sparklineTooltip.x + 'px; top:' + (sparklineTooltip.y - 40) + 'px'"
+    x-text="sparklineTooltip.date + '  ' + sparklineTooltip.price"
+  ></div>
 
   <!-- Edit Mode Banner -->
   <div class="edit-banner" x-show="editMode" x-transition style="display:none;">
@@ -107,6 +121,9 @@
       </div>
       <button @click="enterEditMode()" class="edit-toggle-btn" title="Edit Mode" x-show="!editMode">
         <span>✏️</span>
+      </button>
+      <button @click="refreshAll()" class="refresh-all-btn" :class="refreshingAll && 'spinning'" title="Refresh All (R)" aria-label="Refresh all widgets" x-show="!editMode">
+        <span>↻</span>
       </button>
       <button @click="showSettingsModal = true; loadSettings()" class="settings-toggle-btn" title="Settings" aria-label="Settings" x-show="!editMode">
         <span>⚙️</span>
@@ -215,6 +232,12 @@
   <!-- Dashboard Grid -->
   <main class="dashboard-grid" id="dashboard-grid">
 
+    <!-- Empty State -->
+    <div class="empty-state" x-show="allWidgetsHidden() && !editMode" x-transition style="display:none;">
+      <div class="empty-state-icon">📭</div>
+      <p class="empty-state-text">All widgets are hidden. Click <button @click="enterEditMode()" class="empty-state-edit-btn">✏️</button> to edit.</p>
+    </div>
+
     <!-- Weather + Clock -->
     <section class="card weather-card" data-widget-id="weather" tabindex="0" x-show="editMode || widgetVisible('weather')">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['weather']" @click="toggleCollapse('weather')">
@@ -223,6 +246,8 @@
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('weather')" :title="widgetVisible('weather') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('weather') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">🌤️</span>
         <h2 class="card-title">Weather & Clock</h2>
+        <span class="update-dot" x-show="weather.lastUpdated" x-effect="if(weather.lastUpdated) { $el.dataset.updatedTs = weather.lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(weather.lastUpdated); const d = (Date.now() - weather.lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
+        <button @click.stop="fetchWeather()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh weather">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['weather'] && 'collapsed'">&#9660;</span>
       </div>
       <div class="card-body" x-show="!collapsedWidgets['weather']" x-transition.duration.200ms>
@@ -248,6 +273,10 @@
               <span>Feels like <span x-text="weather.data.current.feelsLike + '°C'"></span></span>
               <span>💧 <span x-text="weather.data.current.humidity + '%'"></span></span>
               <span>💨 <span x-text="weather.data.current.windSpeed + ' km/h'"></span></span>
+              <span class="uv-badge"
+                :class="weather.data.current.uvIndex < 3 ? 'uv-low' : weather.data.current.uvIndex < 6 ? 'uv-moderate' : weather.data.current.uvIndex < 8 ? 'uv-high' : 'uv-veryhigh'"
+                x-text="'UV ' + Math.round(weather.data.current.uvIndex) + ' — ' + (weather.data.current.uvIndex < 3 ? 'Low' : weather.data.current.uvIndex < 6 ? 'Moderate' : weather.data.current.uvIndex < 8 ? 'High' : 'Very High')">
+              </span>
             </div>
             <div class="forecast">
               <template x-for="day in weather.data.daily.slice(1)" :key="day.date">
@@ -258,6 +287,7 @@
                     <span class="temp-max" x-text="Math.round(day.maxTemp) + '°'"></span>
                     <span class="temp-min" x-text="Math.round(day.minTemp) + '°'"></span>
                   </span>
+                  <span class="forecast-precip" x-show="day.precipProbability > 0" x-text="day.precipProbability + '%'"></span>
                 </div>
               </template>
             </div>
@@ -269,7 +299,6 @@
             <button @click="fetchWeather()" class="retry-btn">Retry</button>
           </div>
         </template>
-      <div class="card-updated" x-show="weather.lastUpdated" x-text="'Updated ' + timeAgo(weather.lastUpdated)" x-effect="if(weather.lastUpdated) $el.dataset.updatedAt = weather.lastUpdated"></div>
       </div>
     </section>
 
@@ -281,6 +310,8 @@
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('stocks')" :title="widgetVisible('stocks') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('stocks') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">📊</span>
         <h2 class="card-title">Stocks</h2>
+        <span class="update-dot" x-show="stocks.lastUpdated" x-effect="if(stocks.lastUpdated) { $el.dataset.updatedTs = stocks.lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(stocks.lastUpdated); const d = (Date.now() - stocks.lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
+        <button @click.stop="fetchStocks()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh stocks">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['stocks'] && 'collapsed'">&#9660;</span>
         <span class="market-badge closed" x-show="!stocks.usMarketOpen" x-cloak>Market Closed</span>
         <button @click="showStockModal = true" class="card-action-btn" title="Add stock" x-show="editMode">+</button>
@@ -304,7 +335,22 @@
                   x-text="stock.error ? stock.error : ((stock.change >= 0 ? '+' : '') + stock.change?.toFixed(2) + ' (' + stock.changePercent?.toFixed(2) + '%)')">
                 </div>
                 <template x-if="stock.history && stock.history.length > 1">
-                  <svg class="stock-sparkline" :width="120" :height="40" viewBox="0 0 120 40" preserveAspectRatio="none">
+                  <svg class="stock-sparkline" :width="120" :height="40" viewBox="0 0 120 40" preserveAspectRatio="none"
+                    @mousemove="
+                      const rect = $el.getBoundingClientRect();
+                      const xPos = $event.clientX - rect.left;
+                      const idx = Math.round((xPos / rect.width) * (stock.history.length - 1));
+                      const ci = Math.max(0, Math.min(idx, stock.history.length - 1));
+                      sparklineTooltip = {
+                        show: true,
+                        x: $event.clientX,
+                        y: $event.clientY,
+                        date: stock.historyDates ? (stock.historyDates[ci] || 'Day ' + (ci+1)) : 'Day ' + (ci+1),
+                        price: '$' + stock.history[ci].toFixed(2)
+                      }
+                    "
+                    @mouseleave="sparklineTooltip.show = false"
+                  >
                     <polyline
                       :points="sparklinePath(stock.history, 120, 40)"
                       fill="none"
@@ -319,7 +365,6 @@
             </template>
           </div>
         </template>
-      <div class="card-updated" x-show="stocks.lastUpdated" x-text="'Updated ' + timeAgo(stocks.lastUpdated)" x-effect="if(stocks.lastUpdated) $el.dataset.updatedAt = stocks.lastUpdated"></div>
       </div>
     </section>
 
@@ -331,6 +376,8 @@
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('rss')" :title="widgetVisible('rss') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('rss') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">📰</span>
         <h2 class="card-title">Hebits Feed</h2>
+        <span class="update-dot" x-show="rss.lastUpdated" x-effect="if(rss.lastUpdated) { $el.dataset.updatedTs = rss.lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(rss.lastUpdated); const d = (Date.now() - rss.lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
+        <button @click.stop="fetchRSS()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh RSS">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['rss'] && 'collapsed'">&#9660;</span>
       </div>
       <div class="card-body rss-body" x-show="!collapsedWidgets['rss']" x-transition.duration.200ms>
@@ -365,7 +412,6 @@
             <button @click="fetchRSS()" class="retry-btn">Retry</button>
           </div>
         </template>
-      <div class="card-updated" x-show="rss.lastUpdated" x-text="'Updated ' + timeAgo(rss.lastUpdated)" x-effect="if(rss.lastUpdated) $el.dataset.updatedAt = rss.lastUpdated"></div>
       </div>
     </section>
 
@@ -377,6 +423,7 @@
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('bookmarks')" :title="widgetVisible('bookmarks') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('bookmarks') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">🔖</span>
         <h2 class="card-title">Bookmarks</h2>
+        <button @click.stop="fetchBookmarks()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh bookmarks">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['bookmarks'] && 'collapsed'">&#9660;</span>
         <button @click="showBookmarkModal = true" class="card-action-btn" title="Add bookmark" x-show="editMode">+</button>
       </div>
@@ -409,6 +456,8 @@
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('services')" :title="widgetVisible('services') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('services') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">🖥️</span>
         <h2 class="card-title">Services</h2>
+        <span class="update-dot" x-show="services.lastUpdated" x-effect="if(services.lastUpdated) { $el.dataset.updatedTs = services.lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(services.lastUpdated); const d = (Date.now() - services.lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
+        <button @click.stop="fetchServices()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh services">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['services'] && 'collapsed'">&#9660;</span>
         <button @click="showServiceModal = true" class="card-action-btn" title="Add service" x-show="editMode">+</button>
         <span class="services-count" x-show="!services.loading">
@@ -433,7 +482,10 @@
                     <button @click.prevent.stop="deleteService(svc.id)" class="service-delete" title="Remove">×</button>
                   </template>
                   <template x-if="!editMode">
-                    <span class="dot" :class="svc.online ? 'dot-green' : 'dot-red'"></span>
+                    <span class="service-ping-wrap">
+                      <button @click.prevent.stop="pingService(svc)" class="service-ping-btn" title="Ping now">📡</button>
+                      <span class="dot" :class="svc.online ? 'dot-green' : 'dot-red'"></span>
+                    </span>
                   </template>
                 </div>
                 <div class="service-item-meta">
@@ -452,7 +504,6 @@
             </template>
           </div>
         </template>
-      <div class="card-updated" x-show="services.lastUpdated" x-text="'Updated ' + timeAgo(services.lastUpdated)" x-effect="if(services.lastUpdated) $el.dataset.updatedAt = services.lastUpdated"></div>
       </div>
     </section>
 
@@ -492,14 +543,27 @@
       },
       truncName(name, len) {
         return name && name.length > len ? name.substring(0, len) + '...' : name;
+      },
+      formatEta(seconds) {
+        if (seconds == null || seconds === 8640000 || seconds < 0) return '\u221E';
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        if (h > 0) return h + 'h ' + m + 'm';
+        if (m > 0) return m + 'm';
+        return '<1m';
+      },
+      isDownloading(state) {
+        return state === 'downloading' || state === 'stalledDL' || state === 'forcedDL';
       }
-    }" x-init="fetchQbit(); setInterval(() => fetchQbit(), 30000)">
+    }" x-init="fetchQbit(); setInterval(() => fetchQbit(), 30000)" @refresh-all.window="fetchQbit()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['qbit']" @click="toggleCollapse('qbit')">
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('qbit')" :title="widgetVisible('qbit') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('qbit') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">⬇️</span>
         <h2 class="card-title">Downloads</h2>
+        <span class="update-dot" x-show="lastUpdated" x-effect="if(lastUpdated) { $el.dataset.updatedTs = lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(lastUpdated); const d = (Date.now() - lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
+        <button @click.stop="fetchQbit()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh downloads">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['qbit'] && 'collapsed'">&#9660;</span>
       </div>
       <div class="card-body" x-show="!collapsedWidgets['qbit']" x-transition.duration.200ms>
@@ -560,6 +624,7 @@
                     <span>↑ <span x-text="t.upspeed"></span></span>
                     <span>Ratio: <span x-text="t.ratio"></span></span>
                     <span x-text="t.progress + '%'"></span>
+                    <span class="qbit-eta" x-show="isDownloading(t.state)" x-text="'ETA: ' + formatEta(t.eta)"></span>
                     <button class="qbit-action-btn" @click="torrentAction(t.hash, isPaused(t.state) ? 'resume' : 'pause')" x-text="isPaused(t.state) ? '▶' : '⏸'"></button>
                   </div>
                 </div>
@@ -571,7 +636,6 @@
         <template x-if="!qbit.loading && qbit.data && !qbit.data.connected">
           <div class="error-state" role="alert"><p>qBittorrent offline</p></div>
         </template>
-      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)" x-effect="if(lastUpdated) $el.dataset.updatedAt = lastUpdated"></div>
       </div>
     </section>
 
@@ -589,13 +653,15 @@
         } catch(e) { this.nas.error = e.message; }
         this.nas.loading = false;
       }
-    }" x-init="fetchNAS(); setInterval(() => fetchNAS(), 60000)">
+    }" x-init="fetchNAS(); setInterval(() => fetchNAS(), 60000)" @refresh-all.window="fetchNAS()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['truenas']" @click="toggleCollapse('truenas')">
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('truenas')" :title="widgetVisible('truenas') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('truenas') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">💾</span>
         <h2 class="card-title">TrueNAS</h2>
+        <span class="update-dot" x-show="lastUpdated" x-effect="if(lastUpdated) { $el.dataset.updatedTs = lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(lastUpdated); const d = (Date.now() - lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
+        <button @click.stop="fetchNAS()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh TrueNAS">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['truenas'] && 'collapsed'">&#9660;</span>
       </div>
       <div class="card-body" x-show="!collapsedWidgets['truenas']" x-transition.duration.200ms>
@@ -645,18 +711,19 @@
         <template x-if="!nas.loading && nas.error">
           <div class="error-state" role="alert"><p x-text="nas.error"></p></div>
         </template>
-      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)" x-effect="if(lastUpdated) $el.dataset.updatedAt = lastUpdated"></div>
       </div>
     </section>
 
     <!-- Media Center -->
-    <section class="card media-card" data-widget-id="media" tabindex="0" x-show="editMode || widgetVisible('media')" x-data="mediaCenter()" x-init="init()">
+    <section class="card media-card" data-widget-id="media" tabindex="0" x-show="editMode || widgetVisible('media')" x-data="mediaCenter()" x-init="init()" @refresh-all.window="fetchContinue(); fetchRecent(); fetchPlaying(); fetchMediaStats()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['media']" @click="toggleCollapse('media')">
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('media')" :title="widgetVisible('media') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('media') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">🎬</span>
         <h2 class="card-title">Media Center</h2>
+        <span class="update-dot" x-show="lastUpdated" x-effect="if(lastUpdated) { $el.dataset.updatedTs = lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(lastUpdated); const d = (Date.now() - lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
+        <button @click.stop="fetchContinue(); fetchRecent(); fetchPlaying(); fetchMediaStats()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh media">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['media'] && 'collapsed'">&#9660;</span>
         <span class="media-stats-row" x-show="mediaStats" x-text="mediaStats"></span>
         <div class="media-tabs">
@@ -666,6 +733,7 @@
             Now Playing
             <span class="now-playing-dot" x-show="playing.data.length > 0"></span>
           </button>
+          <button class="media-tab" :class="tab === 'nextup' && 'active'" @click.stop="tab = 'nextup'">Next Up</button>
         </div>
       </div>
       <div class="card-body" x-show="!collapsedWidgets['media']" x-transition.duration.200ms>
@@ -794,18 +862,51 @@
           </template>
         </div>
 
-      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)" x-effect="if(lastUpdated) $el.dataset.updatedAt = lastUpdated"></div>
+        <!-- Next Up -->
+        <div x-show="tab === 'nextup'">
+          <template x-if="nextUp.loading">
+            <div class="media-scroll">
+              <template x-for="i in 4" :key="i"><div class="skeleton media-skeleton-poster"></div></template>
+            </div>
+          </template>
+          <template x-if="!nextUp.loading && nextUp.data.length === 0">
+            <div class="media-empty">No upcoming episodes</div>
+          </template>
+          <template x-if="!nextUp.loading && nextUp.data.length > 0">
+            <div class="media-scroll">
+              <template x-for="item in nextUp.data" :key="item.id">
+                <a :href="item.deepLink" target="_blank" rel="noopener" class="media-poster-link">
+                <div class="media-poster-card">
+                  <div class="media-poster-img-wrap">
+                    <img loading="lazy" :src="item.imagePrimary || ''" alt="" class="media-poster-img" onerror="this.parentElement.classList.add('no-img')">
+                    <div class="media-poster-no-img" x-text="item.seriesName?.charAt(0) || '?'"></div>
+                    <div class="media-poster-overlay">
+                      <span x-text="item.seriesName"></span>
+                    </div>
+                    <button class="fullscreen-btn" @click.stop="window.dispatchEvent(new CustomEvent('open-fullscreen', {detail: {src: item.imagePrimary, type: 'image'}}))" x-show="item.imagePrimary" title="Fullscreen">&#x26F6;</button>
+                  </div>
+                  <div class="media-poster-title" x-text="item.seriesName"></div>
+                  <div class="media-poster-sub" x-text="'S' + item.seasonNumber + 'E' + item.episodeNumber + ' — ' + item.name"></div>
+                </div>
+              </a>
+              </template>
+            </div>
+          </template>
+        </div>
+
       </div>
     </section>
 
     <!-- Alfred Apps -->
-    <section class="card alfred-apps-card" data-widget-id="alfred-apps" tabindex="0" x-show="editMode || widgetVisible('alfred-apps')" x-data="alfredApps()" x-init="init()">
+    <section class="card alfred-apps-card" data-widget-id="alfred-apps" tabindex="0" x-show="editMode || widgetVisible('alfred-apps')" x-data="alfredApps()" x-init="init()" @refresh-all.window="fetchStatus()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['alfred-apps']" @click="toggleCollapse('alfred-apps')">
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('alfred-apps')" :title="widgetVisible('alfred-apps') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('alfred-apps') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">🤖</span>
         <h2 class="card-title">Alfred Apps</h2>
+        <span class="update-dot" x-show="lastUpdated" x-effect="if(lastUpdated) { $el.dataset.updatedTs = lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(lastUpdated); const d = (Date.now() - lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
+        <button @click.stop="fetchStatus()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh Alfred Apps">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['alfred-apps'] && 'collapsed'">&#9660;</span>
         <span class="services-count" x-show="!loading">
           <span class="dot dot-green"></span>
@@ -856,7 +957,6 @@
             </template>
           </div>
         </template>
-      <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)" x-effect="if(lastUpdated) $el.dataset.updatedAt = lastUpdated"></div>
       </div>
     </section>
 
@@ -902,13 +1002,14 @@
         const q = encodeURIComponent(ev.title + ' ' + dateStr);
         return 'https://calendar.google.com/calendar/r/search?q=' + q;
       }
-    }" x-init="fetchCalendar(); setInterval(() => fetchCalendar(), 300000)">
+    }" x-init="fetchCalendar(); setInterval(() => fetchCalendar(), 300000)" @refresh-all.window="fetchCalendar()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['calendar']" @click="toggleCollapse('calendar')">
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('calendar')" :title="widgetVisible('calendar') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('calendar') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">📅</span>
         <h2 class="card-title">Calendar</h2>
+        <button @click.stop="fetchCalendar()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh calendar">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['calendar'] && 'collapsed'">&#9660;</span>
       </div>
       <div class="card-body" x-show="!collapsedWidgets['calendar']" x-transition.duration.200ms>
@@ -944,13 +1045,15 @@
     </section>
 
     <!-- Fitness -->
-    <section class="card fitness-card" data-widget-id="fitness" x-show="editMode || widgetVisible('fitness')" x-data="fitnessWidget()" x-init="fetchFitness(); setInterval(() => fetchFitness(), 300000)">
+    <section class="card fitness-card" data-widget-id="fitness" x-show="editMode || widgetVisible('fitness')" x-data="fitnessWidget()" x-init="fetchFitness(); setInterval(() => fetchFitness(), 300000)" @refresh-all.window="fetchFitness()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['fitness']" @click="toggleCollapse('fitness')">
         <span class="drag-handle" x-show="editMode">&#x2807;</span>
         <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('fitness')" :title="widgetVisible('fitness') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('fitness') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">💪</span>
         <h2 class="card-title">Fitness</h2>
+        <span class="update-dot" x-show="lastUpdated" x-effect="if(lastUpdated) { $el.dataset.updatedTs = lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(lastUpdated); const d = (Date.now() - lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
+        <button @click.stop="fetchFitness()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh fitness">↻</button>
         <a :href="fitness.data?.appUrl || 'http://192.168.0.139:3000'" target="_blank" class="card-action-btn" title="Open Fitness App">↗</a>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['fitness'] && 'collapsed'">&#9660;</span>
       </div>
@@ -1072,32 +1175,56 @@
             </template>
           </div>
         </template>
-        <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)" x-effect="if(lastUpdated) $el.dataset.updatedAt = lastUpdated"></div>
       </div>
     </section>
 
     <!-- What to Watch -->
     <section class="card whats-next-card" data-widget-id="whats-next" tabindex="0" x-show="editMode || widgetVisible('whats-next')" x-data="{
       movie: null, loading: true,
+      filterGenre: '', filterMinRating: '',
       async fetchRandom() {
         this.loading = true;
         try {
-          const r = await fetch('/api/media-stats/random');
+          const params = new URLSearchParams();
+          if (this.filterGenre) params.set('genre', this.filterGenre);
+          if (this.filterMinRating) params.set('minRating', this.filterMinRating);
+          const qs = params.toString();
+          const r = await fetch('/api/media-stats/random' + (qs ? '?' + qs : ''));
           if (r.ok) this.movie = await r.json();
         } catch(e) { console.error('Random movie error:', e); }
         this.loading = false;
       }
-    }" x-init="fetchRandom()">
+    }" x-init="fetchRandom()" @refresh-all.window="fetchRandom()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['whats-next']" @click="toggleCollapse('whats-next')">
         <span class="drag-handle" x-show="editMode">⠿</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">⤡</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('whats-next')" :title="widgetVisible('whats-next') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('whats-next') ? '👁' : '👁‍🗨'"></span></button>
         <span class="card-icon">🎲</span>
         <h2 class="card-title">What to Watch</h2>
+        <button @click.stop="fetchRandom()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh suggestion">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['whats-next'] && 'collapsed'">&#9660;</span>
-        <button @click.stop="fetchRandom()" class="card-action-btn" title="Suggest another">↻</button>
       </div>
       <div class="card-body" x-show="!collapsedWidgets['whats-next']" x-transition.duration.200ms>
+        <div class="wtw-filter-row">
+          <select x-model="filterGenre" @change="fetchRandom()" class="wtw-filter-select">
+            <option value="">All Genres</option>
+            <option value="Action">Action</option>
+            <option value="Comedy">Comedy</option>
+            <option value="Drama">Drama</option>
+            <option value="Horror">Horror</option>
+            <option value="Science Fiction">Sci-Fi</option>
+            <option value="Thriller">Thriller</option>
+            <option value="Animation">Animation</option>
+            <option value="Romance">Romance</option>
+            <option value="Documentary">Documentary</option>
+            <option value="Adventure">Adventure</option>
+            <option value="Fantasy">Fantasy</option>
+          </select>
+          <div class="wtw-filter-rating">
+            <label>Min Rating</label>
+            <input type="number" min="1" max="10" step="0.5" x-model="filterMinRating" @change="fetchRandom()" class="wtw-filter-input" placeholder="-">
+          </div>
+        </div>
         <template x-if="loading">
           <div class="skeleton-group">
             <div class="skeleton" style="height:250px;border-radius:12px"></div>
@@ -1148,8 +1275,12 @@
       async fetchEvents() {
         try {
           const r = await fetch('/api/frigate/events');
-          if (r.ok) this.events = (await r.json()).slice(0, 5);
+          if (r.ok) this.events = await r.json();
         } catch(e) { console.error('Frigate events:', e); }
+      },
+      getDetectionCount(cameraName) {
+        const oneHourAgo = Date.now() / 1000 - 3600;
+        return this.events.filter(e => e.camera === cameraName && e.time >= oneHourAgo).length;
       },
       async init() {
         await Promise.all([this.fetchCameras(), this.fetchEvents()]);
@@ -1193,13 +1324,15 @@
         this.liveCamera = null;
         this.liveStreamUrl = null;
       }
-    }" x-init="init()" @keydown.escape.window="closeLive()">
+    }" x-init="init()" @keydown.escape.window="closeLive()" @refresh-all.window="fetchCameras(); fetchEvents()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['frigate']" @click="toggleCollapse('frigate')">
         <span class="drag-handle" x-show="editMode">&#x2817;</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('frigate')" :title="widgetVisible('frigate') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('frigate') ? '\u{1F441}' : '\u{1F441}\u200D\u{1F5E8}'"></span></button>
         <span class="card-icon">&#x1F4F7;</span>
         <h2 class="card-title">Cameras</h2>
+        <span class="update-dot" x-show="lastUpdated" x-effect="if(lastUpdated) { $el.dataset.updatedTs = lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(lastUpdated); const d = (Date.now() - lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
+        <button @click.stop="fetchCameras(); fetchEvents()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh cameras">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['frigate'] && 'collapsed'">&#9660;</span>
       </div>
       <div class="card-body" x-show="!collapsedWidgets['frigate']" x-transition.duration.200ms>
@@ -1218,6 +1351,7 @@
                        @error="$el.style.display='none'; $el.nextElementSibling.style.display='flex'"
                   >
                   <button class="fullscreen-btn" @click.stop="window.dispatchEvent(new CustomEvent('open-fullscreen', {detail: {src: snapshotSrc(cam), type: 'image'}}))" title="Fullscreen">&#x26F6;</button>
+                  <span class="frigate-detection-badge" x-show="getDetectionCount(cam.name) > 0" x-text="getDetectionCount(cam.name)"></span>
                   <div class="frigate-snap-placeholder" style="display:none">
                     <span>Offline</span>
                   </div>
@@ -1232,7 +1366,7 @@
               <div class="frigate-events">
                 <div class="frigate-events-title">Recent Detections</div>
                 <div class="frigate-event-list">
-                  <template x-for="ev in events" :key="ev.id">
+                  <template x-for="ev in events.slice(0, 5)" :key="ev.id">
                     <div class="frigate-event frigate-event-alert">
                       <img :src="ev.snapshotUrl" :alt="ev.label" class="frigate-event-thumb" loading="lazy">
                       <div class="frigate-event-info">
@@ -1256,7 +1390,6 @@
         <template x-if="!loading && cameras.length === 0">
           <div class="error-state" role="alert"><p>No cameras found</p></div>
         </template>
-        <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)" x-effect="if(lastUpdated) $el.dataset.updatedAt = lastUpdated"></div>
       </div>
       <!-- Live stream overlay -->
       <template x-if="liveCamera">
@@ -1316,6 +1449,23 @@
         this.clientsOpen = !this.clientsOpen;
         if (this.clientsOpen && this.clients.length === 0) this.fetchClients();
       },
+      async scanPorts(client) {
+        if (!client.ip) return;
+        client._scanning = true;
+        try {
+          const r = await fetch('/api/network/scan/' + encodeURIComponent(client.ip));
+          if (r.ok) {
+            const d = await r.json();
+            client._ports = d.ports.filter(p => p.open);
+          } else {
+            const d = await r.json().catch(() => ({}));
+            client._scanError = d.error || 'Scan failed';
+          }
+        } catch(e) {
+          client._scanError = e.message;
+        }
+        client._scanning = false;
+      },
       formatBytes(bytes) {
         if (!bytes || bytes === 0) return '0 B';
         const units = ['B', 'KB', 'MB', 'GB'];
@@ -1335,13 +1485,15 @@
           return x + ',' + y;
         }).join(' ');
       }
-    }" x-init="fetchThroughput(); setInterval(() => fetchThroughput(), 10000); setInterval(() => { if (clientsOpen) fetchClients(); }, 30000)">
+    }" x-init="fetchThroughput(); setInterval(() => fetchThroughput(), 10000); setInterval(() => { if (clientsOpen) fetchClients(); }, 30000)" @refresh-all.window="fetchThroughput()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['network-throughput']" @click="toggleCollapse('network-throughput')">
         <span class="drag-handle" x-show="editMode">&#x2817;</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
         <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('network-throughput')" :title="widgetVisible('network-throughput') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('network-throughput') ? '\u{1F441}' : '\u{1F441}\u200D\u{1F5E8}'"></span></button>
         <span class="card-icon">&#x1F310;</span>
         <h2 class="card-title">Network</h2>
+        <span class="update-dot" x-show="lastUpdated" x-effect="if(lastUpdated) { $el.dataset.updatedTs = lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(lastUpdated); const d = (Date.now() - lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
+        <button @click.stop="fetchThroughput()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh network">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['network-throughput'] && 'collapsed'">&#9660;</span>
       </div>
       <div class="card-body" x-show="!collapsedWidgets['network-throughput']" x-transition.duration.200ms>
@@ -1417,18 +1569,37 @@
                   <div class="net-clients-empty">No clients found</div>
                 </template>
                 <template x-for="c in clients" :key="c.mac">
-                  <div class="net-client-row">
-                    <span class="net-client-type-badge" :class="'badge-' + c.type" x-text="c.type === 'wifi' ? 'WiFi' : 'Wired'"></span>
-                    <div class="net-client-info">
-                      <span class="net-client-name" x-text="c.name"></span>
-                      <span class="net-client-ip" x-text="c.ip || c.mac"></span>
+                  <div class="net-client-row-wrap">
+                    <div class="net-client-row">
+                      <span class="net-client-type-badge" :class="'badge-' + c.type" x-text="c.type === 'wifi' ? 'WiFi' : 'Wired'"></span>
+                      <div class="net-client-info">
+                        <span class="net-client-name" x-text="c.name"></span>
+                        <span class="net-client-ip" x-text="c.ip || c.mac"></span>
+                      </div>
+                      <div class="net-client-stats">
+                        <span class="net-client-traffic" x-text="'&#x2193;' + formatBytes(c.rxBytes) + ' &#x2191;' + formatBytes(c.txBytes)"></span>
+                        <template x-if="c.signal != null">
+                          <span class="net-client-signal" x-text="c.signal + ' dBm'"></span>
+                        </template>
+                      </div>
+                      <button class="net-scan-btn" x-show="c.ip" @click.stop="scanPorts(c)" :disabled="c._scanning" title="Scan open ports">
+                        <span x-show="!c._scanning">&#x1F50D;</span>
+                        <span x-show="c._scanning" class="net-scan-spinner"></span>
+                      </button>
                     </div>
-                    <div class="net-client-stats">
-                      <span class="net-client-traffic" x-text="'&#x2193;' + formatBytes(c.rxBytes) + ' &#x2191;' + formatBytes(c.txBytes)"></span>
-                      <template x-if="c.signal != null">
-                        <span class="net-client-signal" x-text="c.signal + ' dBm'"></span>
-                      </template>
-                    </div>
+                    <template x-if="c._ports && c._ports.length > 0">
+                      <div class="net-port-badges">
+                        <template x-for="p in c._ports" :key="p.port">
+                          <span class="net-port-badge" x-text="p.service + ':' + p.port"></span>
+                        </template>
+                      </div>
+                    </template>
+                    <template x-if="c._ports && c._ports.length === 0">
+                      <div class="net-port-badges"><span class="net-port-none">No open ports</span></div>
+                    </template>
+                    <template x-if="c._scanError">
+                      <div class="net-port-badges"><span class="net-port-error" x-text="c._scanError"></span></div>
+                    </template>
                   </div>
                 </template>
               </div>
@@ -1441,7 +1612,6 @@
             <button @click="fetchThroughput()" class="retry-btn">Retry</button>
           </div>
         </template>
-        <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)" x-effect="if(lastUpdated) $el.dataset.updatedAt = lastUpdated"></div>
       </div>
     </section>
 
@@ -1455,6 +1625,8 @@
       pauseRemaining: '',
       clients: null,
       clientsOpen: false,
+      customPause: false,
+      customMinutes: '',
       async fetchAll() {
         try {
           const [statsR, statusR] = await Promise.all([
@@ -1532,6 +1704,13 @@
         const max = Math.max(...arr, 1);
         return Math.max(((val / max) * 100), 2) + '%';
       },
+      getBlockedBarHeight(i) {
+        const dns = this.ag.stats?.dnsQueries || [];
+        const blocked = this.ag.stats?.blockedFiltering || [];
+        const max = Math.max(...dns, 1);
+        const bVal = blocked[i] || 0;
+        return Math.max(((bVal / max) * 100), 0) + '%';
+      },
       getHourLabel(i) {
         const arr = this.ag.stats?.dnsQueries || [];
         const now = new Date().getHours();
@@ -1541,7 +1720,7 @@
       blockedName(entry) { return Object.keys(entry)[0] || ''; },
       blockedCount(entry) { const k = Object.keys(entry)[0]; return k ? entry[k] : 0; },
       fmtNum(n) { return (n || 0).toLocaleString(); }
-    }" x-init="fetchAll(); setInterval(() => fetchAll(), 5 * 60 * 1000)">
+    }" x-init="fetchAll(); setInterval(() => fetchAll(), 5 * 60 * 1000)" @refresh-all.window="fetchAll()">
       <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['adguard']" @click="toggleCollapse('adguard')">
         <span class="drag-handle" x-show="editMode">&#x2807;</span>
         <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
@@ -1552,6 +1731,8 @@
           </svg>
         </span>
         <h2 class="card-title">AdGuard</h2>
+        <span class="update-dot" x-show="lastUpdated" x-effect="if(lastUpdated) { $el.dataset.updatedTs = lastUpdated; $el.dataset.tooltip = 'Updated ' + timeAgo(lastUpdated); const d = (Date.now() - lastUpdated) / 1000; $el.classList.remove('dot-fresh','dot-stale','dot-old'); $el.classList.add(d < 300 ? 'dot-fresh' : d < 900 ? 'dot-stale' : 'dot-old'); }"></span>
+        <button @click.stop="fetchAll()" class="widget-refresh-btn" title="Refresh" aria-label="Refresh AdGuard">↻</button>
         <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['adguard'] && 'collapsed'">&#9660;</span>
         <span class="adguard-status-badge"
               :class="ag.status?.protectionEnabled === true ? 'badge-on' : ag.status?.protectionEnabled === false ? 'badge-off' : 'badge-unknown'"
@@ -1587,7 +1768,10 @@
               <div class="adguard-barchart">
                 <template x-for="(val, i) in (ag.stats?.dnsQueries || [])" :key="i">
                   <div class="adguard-bar-col">
-                    <div class="adguard-bar" :style="'height:' + getBarHeight(val)" :title="getHourLabel(i) + ':00 — ' + fmtNum(val) + ' queries'"></div>
+                    <div class="adguard-bar-stack" :style="'height:' + getBarHeight(val)" :title="getHourLabel(i) + ':00 — ' + fmtNum(val) + ' queries, ' + fmtNum(ag.stats?.blockedFiltering?.[i] || 0) + ' blocked'">
+                      <div class="adguard-bar adguard-bar-total"></div>
+                      <div class="adguard-bar adguard-bar-blocked" :style="'height:' + getBlockedBarHeight(i)"></div>
+                    </div>
                     <span class="adguard-bar-label" x-show="i % 4 === 0" x-text="getHourLabel(i)"></span>
                   </div>
                 </template>
@@ -1655,10 +1839,15 @@
                   </svg>
                   Pause
                 </button>
-                <div class="adguard-pause-dropdown" x-show="pauseOpen" x-transition @click.outside="pauseOpen = false">
+                <div class="adguard-pause-dropdown" x-show="pauseOpen" x-transition @click.outside="pauseOpen = false; customPause = false">
                   <button class="adguard-pause-opt" @click="pauseFor(30 * 60 * 1000)">30 minutes</button>
                   <button class="adguard-pause-opt" @click="pauseFor(60 * 60 * 1000)">1 hour</button>
                   <button class="adguard-pause-opt" @click="pauseFor(3 * 60 * 60 * 1000)">3 hours</button>
+                  <button class="adguard-pause-opt" @click.stop="customPause = true" x-show="!customPause">Custom...</button>
+                  <div class="adguard-pause-custom" x-show="customPause" x-transition @click.stop>
+                    <input type="number" class="adguard-pause-custom-input" x-model="customMinutes" placeholder="Minutes" min="1" @keydown.enter="if(customMinutes > 0) { pauseFor(customMinutes * 60 * 1000); customPause = false; customMinutes = ''; }">
+                    <button class="adguard-pause-custom-btn" @click="if(customMinutes > 0) { pauseFor(customMinutes * 60 * 1000); customPause = false; customMinutes = ''; }">Go</button>
+                  </div>
                 </div>
               </div>
               <button class="adguard-btn adguard-btn-resume"
@@ -1679,10 +1868,318 @@
             <button @click="ag.loading = true; fetchAll()" class="retry-btn">Retry</button>
           </div>
         </template>
-        <div class="card-updated" x-show="lastUpdated" x-text="'Updated ' + timeAgo(lastUpdated)" x-effect="if(lastUpdated) $el.dataset.updatedAt = lastUpdated"></div>
       </div>
     </section>
 
+
+    <!-- Quick Notes -->
+    <section class="card notes-card" data-widget-id="notes" tabindex="0" x-show="editMode || widgetVisible('notes')" x-data="{
+      note: { content: '' },
+      yesterday: { content: '' },
+      loading: true,
+      saving: false,
+      showYesterday: false,
+      saveTimer: null,
+      async fetchNote() {
+        try {
+          const [todayR, yesterdayR] = await Promise.all([
+            fetch('/api/notes/today').then(r => r.json()),
+            fetch('/api/notes/yesterday').then(r => r.json())
+          ]);
+          this.note = todayR;
+          this.yesterday = yesterdayR;
+        } catch(e) { console.error('Notes error:', e); }
+        this.loading = false;
+      },
+      async saveNote() {
+        this.saving = true;
+        try {
+          const r = await fetch('/api/notes/today', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: this.note.content })
+          });
+          if (r.ok) this.note = await r.json();
+        } catch(e) { console.error('Notes save error:', e); }
+        this.saving = false;
+      },
+      debounceSave() {
+        if (this.saveTimer) clearTimeout(this.saveTimer);
+        this.saveTimer = setTimeout(() => this.saveNote(), 500);
+      },
+      charCount() {
+        return (this.note.content || '').length;
+      }
+    }" x-init="fetchNote()">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['notes']" @click="toggleCollapse('notes')">
+        <span class="drag-handle" x-show="editMode">&#x2807;</span>
+        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
+        <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('notes')" :title="widgetVisible('notes') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('notes') ? '👁' : '👁‍🗨'"></span></button>
+        <span class="card-icon">📝</span>
+        <h2 class="card-title">Quick Notes</h2>
+        <span class="note-saving-indicator" x-show="saving" x-transition>Saving...</span>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['notes'] && 'collapsed'">&#9660;</span>
+      </div>
+      <div class="card-body" x-show="!collapsedWidgets['notes']" x-transition.duration.200ms>
+        <template x-if="loading">
+          <div class="skeleton-group">
+            <div class="skeleton skeleton-lg"></div>
+          </div>
+        </template>
+        <template x-if="!loading">
+          <div class="notes-content">
+            <textarea class="notes-textarea"
+              x-model="note.content"
+              @input="debounceSave()"
+              @blur="saveNote()"
+              placeholder="Write your notes for today..."
+              rows="6"></textarea>
+            <div class="notes-footer">
+              <span class="notes-char-count" x-text="charCount() + ' characters'"></span>
+            </div>
+            <div class="notes-yesterday-section">
+              <button class="notes-yesterday-toggle" @click="showYesterday = !showYesterday">
+                <span class="collapse-chevron" :class="!showYesterday && 'collapsed'">&#9660;</span>
+                Yesterday's Note
+              </button>
+              <div class="notes-yesterday-content" x-show="showYesterday" x-transition.duration.200ms>
+                <template x-if="yesterday.content">
+                  <div class="notes-yesterday-text" x-text="yesterday.content"></div>
+                </template>
+                <template x-if="!yesterday.content">
+                  <div class="notes-yesterday-empty">No notes from yesterday</div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- Shopping List -->
+    <section class="card shopping-card" data-widget-id="shopping" tabindex="0" x-show="editMode || widgetVisible('shopping')" x-data="{
+      items: [],
+      loading: true,
+      newItem: '',
+      async fetchItems() {
+        try {
+          const r = await fetch('/api/shopping');
+          if (r.ok) this.items = await r.json();
+        } catch(e) { console.error('Shopping error:', e); }
+        this.loading = false;
+      },
+      async addItem() {
+        if (!this.newItem.trim()) return;
+        try {
+          const r = await fetch('/api/shopping', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: this.newItem.trim() })
+          });
+          if (r.ok) {
+            const item = await r.json();
+            this.items.push(item);
+            this.newItem = '';
+          }
+        } catch(e) { console.error('Shopping add error:', e); }
+      },
+      async toggleItem(id) {
+        try {
+          const r = await fetch('/api/shopping/' + id + '/toggle', { method: 'PUT' });
+          if (r.ok) {
+            const updated = await r.json();
+            const idx = this.items.findIndex(i => i.id === id);
+            if (idx >= 0) this.items[idx] = updated;
+          }
+        } catch(e) { console.error('Shopping toggle error:', e); }
+      },
+      async deleteItem(id) {
+        try {
+          const r = await fetch('/api/shopping/' + id, { method: 'DELETE' });
+          if (r.ok) this.items = this.items.filter(i => i.id !== id);
+        } catch(e) { console.error('Shopping delete error:', e); }
+      },
+      async clearChecked() {
+        try {
+          const r = await fetch('/api/shopping/checked', { method: 'DELETE' });
+          if (r.ok) this.items = this.items.filter(i => !i.checked);
+        } catch(e) { console.error('Shopping clear error:', e); }
+      },
+      checkedCount() {
+        return this.items.filter(i => i.checked).length;
+      },
+      uncheckedItems() {
+        return this.items.filter(i => !i.checked);
+      },
+      checkedItems() {
+        return this.items.filter(i => i.checked);
+      }
+    }" x-init="fetchItems()">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['shopping']" @click="toggleCollapse('shopping')">
+        <span class="drag-handle" x-show="editMode">&#x2807;</span>
+        <button class="resize-btn" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
+        <button class="visibility-btn" x-show="editMode" @click.stop="toggleVisibility('shopping')" :title="widgetVisible('shopping') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('shopping') ? '👁' : '👁‍🗨'"></span></button>
+        <span class="card-icon">🛒</span>
+        <h2 class="card-title">Shopping List</h2>
+        <span class="shopping-count-badge" x-show="items.length > 0" x-text="uncheckedItems().length"></span>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['shopping'] && 'collapsed'">&#9660;</span>
+      </div>
+      <div class="card-body" x-show="!collapsedWidgets['shopping']" x-transition.duration.200ms>
+        <template x-if="loading">
+          <div class="skeleton-group">
+            <div class="skeleton skeleton-sm"></div>
+            <div class="skeleton skeleton-sm"></div>
+            <div class="skeleton skeleton-sm"></div>
+          </div>
+        </template>
+        <template x-if="!loading">
+          <div class="shopping-content">
+            <form class="shopping-add-form" @submit.prevent="addItem()">
+              <input type="text" x-model="newItem" placeholder="Add item..." class="shopping-add-input" @keydown.enter.prevent="addItem()">
+              <button type="submit" class="shopping-add-btn" :disabled="!newItem.trim()">Add</button>
+            </form>
+            <div class="shopping-list">
+              <template x-for="item in uncheckedItems()" :key="item.id">
+                <div class="shopping-item">
+                  <label class="shopping-checkbox-label">
+                    <input type="checkbox" :checked="item.checked" @change="toggleItem(item.id)" class="shopping-checkbox">
+                    <span class="shopping-item-text" x-text="item.text"></span>
+                  </label>
+                  <button class="shopping-delete-btn" @click="deleteItem(item.id)" title="Delete">&times;</button>
+                </div>
+              </template>
+              <template x-for="item in checkedItems()" :key="item.id">
+                <div class="shopping-item shopping-item-checked">
+                  <label class="shopping-checkbox-label">
+                    <input type="checkbox" :checked="item.checked" @change="toggleItem(item.id)" class="shopping-checkbox">
+                    <span class="shopping-item-text shopping-item-done" x-text="item.text"></span>
+                  </label>
+                  <button class="shopping-delete-btn" @click="deleteItem(item.id)" title="Delete">&times;</button>
+                </div>
+              </template>
+            </div>
+            <div class="shopping-empty" x-show="items.length === 0">
+              No items yet
+            </div>
+            <div class="shopping-footer" x-show="checkedCount() > 0">
+              <button class="shopping-clear-btn" @click="clearChecked()">
+                Clear checked (<span x-text="checkedCount()"></span>)
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </section>
+
+
+    <!-- Speedtest Widget -->
+    <section class="card speedtest-card" data-widget-id="speedtest" tabindex="0" x-show="editMode || widgetVisible('speedtest')" x-data="{
+      st: { loading: true, latest: null, history: [], error: false, running: false },
+      lastUpdated: null,
+      async fetchData() {
+        try {
+          const [latestR, historyR] = await Promise.all([
+            fetch('/api/speedtest/latest').then(r => r.json()),
+            fetch('/api/speedtest/history').then(r => r.json())
+          ]);
+          this.st.latest = latestR;
+          this.st.history = Array.isArray(historyR) ? historyR : [];
+          this.st.error = false;
+          this.lastUpdated = Date.now();
+        } catch(e) { console.error('Speedtest fetch error:', e); this.st.error = true; }
+        this.st.loading = false;
+      },
+      async runTest() {
+        this.st.running = true;
+        try {
+          const r = await fetch('/api/speedtest/run', { method: 'POST' });
+          const data = await r.json();
+          if (data.error) { console.error('Speedtest run error:', data.error); }
+          else { this.st.latest = data; }
+          await this.fetchData();
+        } catch(e) { console.error('Speedtest run error:', e); }
+        this.st.running = false;
+      },
+      sparkline() {
+        const pts = this.st.history.map(h => h.download);
+        if (pts.length < 2) return '';
+        const max = Math.max(...pts, 1);
+        const w = 200, h = 40;
+        const step = w / (pts.length - 1);
+        return pts.map((v, i) => {
+          const x = i * step;
+          const y = h - (v / max) * h;
+          return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+        }).join(' ');
+      },
+      fmtSpeed(v) { return v != null ? v.toFixed(1) : '--'; },
+      fmtTime(ts) {
+        if (!ts) return '';
+        const d = new Date(ts);
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      }
+    }" x-init="fetchData(); setInterval(() => fetchData(), 10 * 60 * 1000)">
+      <div class="card-header card-header-collapsible" role="button" tabindex="0" :aria-expanded="!collapsedWidgets['speedtest']" @click="toggleCollapse('speedtest')">
+        <span class="drag-handle" x-show="editMode">&#x2807;</span>
+        <button class="resize-btn" aria-label="Resize widget" x-show="editMode" @click.stop="openResize($el.closest('[data-widget-id]').dataset.widgetId, $el)" title="Resize">&#x2921;</button>
+        <button class="visibility-btn" aria-label="Toggle widget visibility" x-show="editMode" @click.stop="toggleVisibility('speedtest')" :title="widgetVisible('speedtest') ? 'Hide widget' : 'Show widget'"><span x-text="widgetVisible('speedtest') ? '&#x1F441;' : '&#x1F441;&#x200D;&#x1F5E8;'"></span></button>
+        <span class="card-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+        </span>
+        <h2 class="card-title">Speedtest</h2>
+        <span class="collapse-chevron" aria-hidden="true" :class="collapsedWidgets['speedtest'] && 'collapsed'">&#9660;</span>
+      </div>
+      <div class="card-body" x-show="!collapsedWidgets['speedtest']" x-transition.duration.200ms>
+        <template x-if="st.loading">
+          <div class="skeleton-group">
+            <div class="skeleton skeleton-lg"></div>
+            <div class="skeleton skeleton-sm"></div>
+          </div>
+        </template>
+        <template x-if="!st.loading && st.error && !st.latest">
+          <div class="error-state" role="alert">
+            <p>Speedtest unavailable</p>
+            <button @click="st.loading = true; fetchData()" class="retry-btn">Retry</button>
+          </div>
+        </template>
+        <template x-if="!st.loading">
+          <div class="speedtest-content">
+            <div class="speedtest-speeds">
+              <div class="speedtest-speed-item">
+                <div class="speedtest-speed-label">Download</div>
+                <div class="speedtest-speed-value download" x-text="fmtSpeed(st.latest?.download)"></div>
+                <div class="speedtest-speed-unit">Mbps</div>
+              </div>
+              <div class="speedtest-speed-divider"></div>
+              <div class="speedtest-speed-item">
+                <div class="speedtest-speed-label">Upload</div>
+                <div class="speedtest-speed-value upload" x-text="fmtSpeed(st.latest?.upload)"></div>
+                <div class="speedtest-speed-unit">Mbps</div>
+              </div>
+            </div>
+            <template x-if="st.history.length >= 2">
+              <div class="speedtest-sparkline-wrap">
+                <div class="speedtest-sparkline-label">7-day download trend</div>
+                <svg class="speedtest-sparkline" viewBox="0 0 200 40" preserveAspectRatio="none">
+                  <path :d="sparkline()" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </template>
+            <div class="speedtest-footer">
+              <button class="speedtest-run-btn" @click="runTest()" :disabled="st.running">
+                <template x-if="st.running">
+                  <span class="speedtest-spinner"></span>
+                </template>
+                <span x-text="st.running ? 'Testing...' : 'Run Now'"></span>
+              </button>
+              <span class="speedtest-last-tested" x-show="st.latest?.created_at" x-text="'Last: ' + fmtTime(st.latest?.created_at)"></span>
+            </div>
+          </div>
+        </template>
+      </div>
+    </section>
   </main>
 
   <!-- Global Resize Dropdown (single instance, positioned dynamically) -->
@@ -1827,6 +2324,13 @@
               </select>
             </div>
           </div>
+          <div class="settings-section">
+            <h4 class="settings-section-title">Accent Color</h4>
+            <div class="settings-row">
+              <label class="settings-label">Custom accent color</label>
+              <input type="color" class="settings-color" x-model="settingsData.accent_color" :value="settingsData.accent_color || '#6c5ce7'" @input="settingsData.accent_color = $event.target.value; applyAccentColor($event.target.value)" @change="saveSetting('accent_color', settingsData.accent_color)">
+            </div>
+          </div>
         </div>
         <!-- Widgets Tab -->
         <div x-show="settingsTab === 'widgets'" style="display:none;">
@@ -1920,14 +2424,20 @@
         resizeOpen: null,
         resizeDropdownStyle: '',
         bgGradient: '',
+        showShortcuts: false,
+        refreshingAll: false,
+        initError: false,
+        initErrorMsg: '',
 
         weather: { loading: true, data: null, error: null, lastUpdated: null },
         bookmarks: { loading: true, data: [] },
         rss: { loading: true, data: [], error: null, lastUpdated: null },
         services: { loading: true, data: [], lastUpdated: null },
         stocks: { loading: true, data: [], usMarketOpen: true, lastUpdated: null },
+        sparklineTooltip: { show: false, x: 0, y: 0, date: '', price: '' },
 
         async init() {
+          try {
           // Fetch host IP from Alfred Apps API for dynamic links
           try {
             const r = await fetch('/api/alfred-apps/status');
@@ -1939,6 +2449,7 @@
           this.fetchServices();
           this.fetchStocks();
           this.fetchWidgetConfig();
+          this.loadAccentColor();
 
           // Restore collapsed state from localStorage
           try {
@@ -1946,15 +2457,27 @@
             if (saved) this.collapsedWidgets = JSON.parse(saved);
           } catch(e) {}
 
-          // Keyboard navigation: Escape closes modals/dropdowns/fullscreen
+          // Keyboard navigation: Escape closes modals/dropdowns/fullscreen; ? for shortcuts; R for refresh all
           document.addEventListener('keydown', (e) => {
+            const tag = (e.target.tagName || '').toLowerCase();
+            const isInput = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
             if (e.key === 'Escape') {
+              if (this.showShortcuts) { this.showShortcuts = false; return; }
               if (this.fullscreenContent) { this.closeFullscreen(); return; }
               if (this.showBookmarkModal) { this.showBookmarkModal = false; return; }
               if (this.showStockModal) { this.showStockModal = false; return; }
               if (this.showServiceModal) { this.showServiceModal = false; return; }
               if (this.showSettingsModal) { this.showSettingsModal = false; return; }
               if (this.resizeOpen) { this.resizeOpen = null; return; }
+            }
+            if (isInput) return;
+            if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+              e.preventDefault();
+              this.showShortcuts = !this.showShortcuts;
+            }
+            if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey) {
+              e.preventDefault();
+              this.refreshAll();
             }
           });
 
@@ -1981,15 +2504,51 @@
           setInterval(() => this.fetchRSS(), 10 * 60 * 1000);        // 10 min
           setInterval(() => this.fetchServices(), 30 * 1000);          // 30 sec
           setInterval(() => this.fetchStocks(), 15 * 60 * 1000);      // 15 min
-          // Refresh timeAgo displays every 30s via vanilla JS (reads data-updated-at attribute)
+          // Refresh update-dot tooltips every 30s
           setInterval(() => {
-            document.querySelectorAll('.card-updated').forEach(el => {
-              const ts = el.dataset.updatedAt;
+            document.querySelectorAll('.update-dot').forEach(el => {
+              const ts = el.dataset.updatedTs;
               if (ts) {
-                el.textContent = 'Updated ' + timeAgo(parseInt(ts));
+                const tsNum = parseInt(ts);
+                el.dataset.tooltip = 'Updated ' + timeAgo(tsNum);
+                const diff = (Date.now() - tsNum) / 1000;
+                el.classList.remove('dot-fresh', 'dot-stale', 'dot-old');
+                if (diff < 300) el.classList.add('dot-fresh');
+                else if (diff < 900) el.classList.add('dot-stale');
+                else el.classList.add('dot-old');
               }
             });
           }, 30000);
+          } catch (err) {
+            this.initError = true;
+            this.initErrorMsg = err.message || 'Unknown error during initialization';
+            console.error('Dashboard init error:', err);
+          }
+        },
+
+        // Check if all widgets are hidden
+        allWidgetsHidden() {
+          const keys = Object.keys(this.widgetVisibility);
+          if (keys.length === 0) return false;
+          return keys.every(k => this.widgetVisibility[k] === false);
+        },
+
+        // Refresh all dashboard-scoped widgets and dispatch event for child-scoped
+        async refreshAll() {
+          if (this.refreshingAll) return;
+          this.refreshingAll = true;
+          try {
+            await Promise.allSettled([
+              this.fetchWeather(),
+              this.fetchBookmarks(),
+              this.fetchRSS(),
+              this.fetchServices(),
+              this.fetchStocks(),
+            ]);
+            window.dispatchEvent(new Event('refresh-all'));
+          } finally {
+            setTimeout(() => { this.refreshingAll = false; }, 600);
+          }
         },
 
         toggleSearchEngine() {
@@ -2106,8 +2665,34 @@
             if (key === 'search_engine') {
               this.searchEngine = value;
             }
+            if (key === 'accent_color') {
+              this.applyAccentColor(value);
+            }
           } catch (e) {
             console.error('Save setting error:', e);
+          }
+        },
+
+        applyAccentColor(color) {
+          if (!color) color = '#6c5ce7';
+          document.documentElement.style.setProperty('--accent', color);
+          // Derive glow: same color at 15% opacity
+          const r = parseInt(color.slice(1,3), 16);
+          const g = parseInt(color.slice(3,5), 16);
+          const b = parseInt(color.slice(5,7), 16);
+          document.documentElement.style.setProperty('--accent-glow', `rgba(${r}, ${g}, ${b}, 0.15)`);
+        },
+
+        async loadAccentColor() {
+          try {
+            const resp = await fetch('/api/settings');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (data.accent_color) {
+              this.applyAccentColor(data.accent_color);
+            }
+          } catch (e) {
+            // ignore — use default
           }
         },
 
@@ -2473,6 +3058,44 @@
           }
         },
 
+        async pingService(svc) {
+          const el = document.querySelector(`.service-item[data-id="${svc.id}"]`);
+          if (el) el.classList.add('service-ping-flash');
+          try {
+            const resp = await fetch(`/api/services/${svc.id}/ping`, { method: 'POST' });
+            if (!resp.ok) throw new Error('Ping failed');
+            const result = await resp.json();
+            // Bucket history same as fetchServices
+            const history = result.history || [];
+            const buckets = [];
+            const now = Date.now();
+            const slotMs = 30 * 60 * 1000;
+            const slots = 48;
+            for (let i = 0; i < slots; i++) {
+              const slotStart = now - (slots - i) * slotMs;
+              const slotEnd = slotStart + slotMs;
+              const inSlot = history.filter(h => {
+                const t = new Date(h.timestamp + 'Z').getTime();
+                return t >= slotStart && t < slotEnd;
+              });
+              if (inSlot.length === 0) {
+                buckets.push({ online: true, timestamp: new Date(slotStart).toLocaleTimeString() });
+              } else {
+                const up = inSlot.filter(h => h.online).length;
+                buckets.push({ online: up >= inSlot.length / 2, timestamp: new Date(slotStart).toLocaleTimeString() });
+              }
+            }
+            result.history = buckets;
+            // Update in-place
+            const idx = this.services.data.findIndex(s => s.id === svc.id);
+            if (idx !== -1) this.services.data[idx] = result;
+          } catch (err) {
+            console.error('Ping error:', err);
+          } finally {
+            if (el) setTimeout(() => el.classList.remove('service-ping-flash'), 600);
+          }
+        },
+
         async fetchStocks() {
           try {
             const resp = await fetch('/api/stocks');
@@ -2641,17 +3264,20 @@
         continueW: { loading: true, data: [] },
         recent: { loading: true, data: [] },
         playing: { loading: true, data: [] },
+        nextUp: { loading: true, data: [] },
         mediaStats: '',
 
         init() {
           this.fetchContinue();
           this.fetchRecent();
           this.fetchPlaying();
+          this.fetchNextUp();
           this.fetchMediaStats();
           setInterval(() => this.fetchContinue(), 60 * 1000);
           setInterval(() => this.fetchMediaStats(), 300000);
           setInterval(() => this.fetchRecent(), 60 * 1000);
           setInterval(() => this.fetchPlaying(), 15 * 1000);
+          setInterval(() => this.fetchNextUp(), 60 * 1000);
         },
 
         async fetchContinue() {
@@ -2676,6 +3302,14 @@
             if (resp.ok) this.playing.data = await resp.json();
           } catch (e) { console.error('Media playing error:', e); }
           finally { this.playing.loading = false; }
+        },
+
+        async fetchNextUp() {
+          try {
+            const resp = await fetch('/api/media/nextup');
+            if (resp.ok) this.nextUp.data = await resp.json();
+          } catch (e) { console.error('Media next up error:', e); }
+          finally { this.nextUp.loading = false; }
         },
 
         async fetchMediaStats() {
@@ -2715,10 +3349,12 @@
         },
         async fetchSummary() {
           try {
-            const [svc, qbit, media] = await Promise.all([
+            const [svc, qbit, media, adguard, calendar] = await Promise.all([
               fetch('/api/services').then(r => r.ok ? r.json() : []),
               fetch('/api/qbit/summary').then(r => r.ok ? r.json() : null).catch(() => null),
-              fetch('/api/media/playing').then(r => r.ok ? r.json() : []).catch(() => [])
+              fetch('/api/media/playing').then(r => r.ok ? r.json() : []).catch(() => []),
+              fetch('/api/adguard/status').then(r => r.ok ? r.json() : null).catch(() => null),
+              fetch('/api/calendar').then(r => r.ok ? r.json() : []).catch(() => [])
             ]);
             const online = svc.filter(s => s.online).length;
             const downloading = qbit?.downloading || 0;
@@ -2726,6 +3362,28 @@
             const parts = [online + ' services online'];
             if (downloading > 0) parts.push(downloading + ' downloading');
             if (watching > 0) parts.push(watching + ' watching now');
+            // AdGuard protection check
+            if (adguard && adguard.protectionEnabled === false) parts.push('⚠️ AdGuard off');
+            // Upcoming calendar event within 2 hours
+            if (Array.isArray(calendar)) {
+              const now = Date.now();
+              const twoHours = 2 * 60 * 60 * 1000;
+              for (const evt of calendar) {
+                if (!evt.start || evt.allDay) continue;
+                const startMs = new Date(evt.start).getTime();
+                const diff = startMs - now;
+                if (diff > 0 && diff <= twoHours) {
+                  const label = diff < 3600000 ? Math.round(diff / 60000) + 'm' : (Math.round(diff / 360000) / 10) + 'h';
+                  parts.push('📅 ' + (evt.title || 'Event') + ' in ' + label);
+                  break;
+                }
+              }
+            }
+            // Rain check from weather API (weatherCode >= 51 = drizzle/rain/snow)
+            try {
+              const wr = await fetch('/api/weather').then(r => r.ok ? r.json() : null).catch(() => null);
+              if (wr?.current?.weatherCode >= 51) parts.push('🌧 Rain expected');
+            } catch(_) {}
             this.summary = parts.join(' · ');
           } catch(e) { this.summary = ''; }
         },
@@ -2945,6 +3603,34 @@
     }
   </script>
 
+  <!-- Keyboard Shortcuts Overlay -->
+  <div class="shortcuts-overlay" x-show="showShortcuts" x-transition.opacity.duration.200ms @click.self="showShortcuts = false" @keydown.escape.window="showShortcuts = false" style="display:none;">
+    <div class="shortcuts-modal">
+      <div class="shortcuts-header">
+        <h3 class="shortcuts-title">Keyboard Shortcuts</h3>
+        <button class="shortcuts-close" @click="showShortcuts = false">&times;</button>
+      </div>
+      <div class="shortcuts-list">
+        <div class="shortcut-row">
+          <span class="shortcut-keys"><kbd>/</kbd> or <kbd>Ctrl+K</kbd></span>
+          <span class="shortcut-desc">Focus search</span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-keys"><kbd>?</kbd></span>
+          <span class="shortcut-desc">Show shortcuts</span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-keys"><kbd>Escape</kbd></span>
+          <span class="shortcut-desc">Close modals / dropdowns</span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-keys"><kbd>R</kbd></span>
+          <span class="shortcut-desc">Refresh all widgets</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Fullscreen Overlay -->
   <div class="fullscreen-overlay" x-show="fullscreenContent" x-transition.opacity.duration.200ms @click.self="closeFullscreen()" style="display:none;">
     <button class="fullscreen-close" @click="closeFullscreen()">&times;</button>
@@ -2952,6 +3638,13 @@
       <img :src="fullscreenContent.src" class="fullscreen-image" alt="">
     </template>
   </div>
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  </script>
 
 </body>
 </html>

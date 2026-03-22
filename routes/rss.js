@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const fetch = require('node-fetch');
+const fetch = globalThis.fetch || require('node-fetch');
 const { parseStringPromise } = require('xml2js');
 
 let cache = { data: null, ts: 0 };

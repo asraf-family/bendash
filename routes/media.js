@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const fetch = require('node-fetch');
+const fetch = globalThis.fetch || require('node-fetch');
 
 const JF_URL = process.env.JELLYFIN_URL;
 const JF_KEY = process.env.JELLYFIN_API_KEY;
@@ -181,6 +181,30 @@ router.get('/playing', async (req, res) => {
   } catch (err) {
     console.error('Now playing error:', err.message);
     res.status(500).json({ error: 'Failed to fetch now playing' });
+  }
+});
+
+// Next Up (next episodes for in-progress series)
+router.get('/nextup', async (req, res) => {
+  try {
+    const resp = await fetch(
+      `${JF_URL}/Shows/NextUp?userId=${JF_USER}&limit=10&Fields=Overview,PrimaryImageTag`,
+      { headers: jfHeaders() }
+    );
+    const data = await resp.json();
+    const items = (data.Items || []).map(item => ({
+      id: item.Id,
+      name: item.Name,
+      seriesName: item.SeriesName || null,
+      seasonNumber: item.ParentIndexNumber ?? null,
+      episodeNumber: item.IndexNumber ?? null,
+      imagePrimary: `/api/media/poster/${item.SeriesId || item.Id}`,
+      deepLink: `${JF_URL}/web/index.html#!/details?id=${item.Id}`,
+    }));
+    res.json(items);
+  } catch (err) {
+    console.error('Jellyfin next up error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch next up' });
   }
 });
 

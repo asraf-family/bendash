@@ -34,6 +34,9 @@ app.use('/api/frigate', require('./routes/frigate'));
 app.use('/api/alerts', require('./routes/alerts'));
 app.use('/api/search', require('./routes/search'));
 app.use('/api/settings', require('./routes/settings'));
+app.use('/api/notes', require('./routes/notes'));
+app.use('/api/shopping', require('./routes/shopping'));
+app.use('/api/speedtest', require('./routes/speedtest'));
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));

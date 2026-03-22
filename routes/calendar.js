@@ -1,6 +1,6 @@
 const express = require('express');
 const { execSync } = require('child_process');
-const fetch = require('node-fetch');
+const fetch = globalThis.fetch || require('node-fetch');
 const router = express.Router();
 
 let cache = { data: null, ts: 0 };

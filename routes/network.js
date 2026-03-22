@@ -1,6 +1,7 @@
 const express = require('express');
-const fetch = require('node-fetch');
+const fetch = globalThis.fetch || require('node-fetch');
 const https = require('https');
+const net = require('net');
 const router = express.Router();
 
 const agent = new https.Agent({ rejectUnauthorized: false });
@@ -248,6 +249,69 @@ router.get('/clients', async (req, res) => {
   } catch (err) {
     console.error('Network clients error:', err.message);
     res.json({ clients: [], error: err.message });
+  }
+});
+
+// ===== Port Scanning =====
+const SCAN_PORTS = [
+  { port: 22, service: 'SSH' },
+  { port: 80, service: 'HTTP' },
+  { port: 443, service: 'HTTPS' },
+  { port: 8080, service: 'HTTP-Alt' },
+  { port: 8443, service: 'HTTPS-Alt' },
+  { port: 3000, service: 'Dev' },
+  { port: 5000, service: 'Dev-Alt' },
+  { port: 8123, service: 'HA' },
+  { port: 9090, service: 'Mgmt' },
+];
+
+const scanCache = new Map(); // ip -> { data, ts }
+const SCAN_CACHE_TTL = 30 * 1000;
+
+function isPrivateIp(ip) {
+  if (!ip || typeof ip !== 'string') return false;
+  const parts = ip.split('.');
+  if (parts.length !== 4 || parts.some(p => isNaN(p) || +p < 0 || +p > 255)) return false;
+  const a = +parts[0], b = +parts[1];
+  return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+}
+
+function probePort(ip, port, timeout = 2000) {
+  return new Promise(resolve => {
+    const sock = net.createConnection({ host: ip, port, timeout }, () => {
+      sock.destroy();
+      resolve(true);
+    });
+    sock.on('error', () => { sock.destroy(); resolve(false); });
+    sock.on('timeout', () => { sock.destroy(); resolve(false); });
+  });
+}
+
+router.get('/scan/:ip', async (req, res) => {
+  const ip = req.params.ip;
+  if (!isPrivateIp(ip)) {
+    return res.status(400).json({ error: 'Only private network IPs allowed' });
+  }
+
+  // Check cache
+  const cached = scanCache.get(ip);
+  if (cached && Date.now() - cached.ts < SCAN_CACHE_TTL) {
+    return res.json({ ip, ports: cached.data, cached: true });
+  }
+
+  try {
+    const results = await Promise.all(
+      SCAN_PORTS.map(async ({ port, service }) => {
+        const open = await probePort(ip, port);
+        return { port, open, service };
+      })
+    );
+
+    scanCache.set(ip, { data: results, ts: Date.now() });
+    res.json({ ip, ports: results, cached: false });
+  } catch (err) {
+    console.error('Port scan error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

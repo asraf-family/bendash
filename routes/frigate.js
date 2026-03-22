@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const fetch = require('node-fetch');
+const fetch = globalThis.fetch || require('node-fetch');
 
 const FRIGATE_URL = process.env.FRIGATE_URL || 'http://192.168.0.13:30194';
 
@@ -37,7 +37,8 @@ router.get('/snapshot/:camera', async (req, res) => {
 // GET /api/frigate/events - recent detection events
 router.get('/events', async (req, res) => {
   try {
-    const resp = await fetch(`${FRIGATE_URL}/api/events?limit=10&has_snapshot=1`);
+    const after = Math.floor(Date.now() / 1000) - 3600;
+    const resp = await fetch(`${FRIGATE_URL}/api/events?limit=50&has_snapshot=1&after=${after}`);
     const events = await resp.json();
     res.json(events.map(e => ({
       id: e.id,

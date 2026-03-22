@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { validateLength, validateUrl } = require('../lib/validate');
 
 // GET all bookmarks
 router.get('/', (req, res) => {
@@ -19,6 +20,12 @@ router.post('/', (req, res) => {
     const { name, url } = req.body;
     if (!name || !url) {
       return res.status(400).json({ error: 'name and url are required' });
+    }
+    if (!validateLength(name, 1, 100)) {
+      return res.status(400).json({ error: 'name must be between 1 and 100 characters' });
+    }
+    if (!validateUrl(url)) {
+      return res.status(400).json({ error: 'url must start with http:// or https://' });
     }
 
     let iconUrl = null;
@@ -104,7 +111,7 @@ router.get('/favicon', async (req, res) => {
   if (!url) return res.status(400).json({ error: 'url required' });
   if (!isUrlSafe(url)) return res.status(400).json({ error: 'Invalid or blocked URL' });
   try {
-    const fetch = require('node-fetch');
+    const fetch = globalThis.fetch || require('node-fetch');
     const domain = new URL(url).hostname;
     // Try Google first
     const gResp = await fetch(`https://www.google.com/s2/favicons?sz=64&domain=${domain}`, { timeout: 3000 });

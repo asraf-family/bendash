@@ -79,6 +79,30 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_service_history_lookup
     ON service_history (service_id, timestamp);
+
+  CREATE TABLE IF NOT EXISTS notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT UNIQUE NOT NULL,
+    content TEXT DEFAULT '',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS shopping_list (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    text TEXT NOT NULL,
+    checked INTEGER DEFAULT 0,
+    sort_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS speedtest_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    download REAL,
+    upload REAL,
+    ping REAL,
+    server TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Add visible column to widget_sizes if it doesn't exist yet

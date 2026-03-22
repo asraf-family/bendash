@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const fetch = require('node-fetch');
+const fetch = globalThis.fetch || require('node-fetch');
 const db = require('../db');
 
 const ADGUARD_URL = process.env.ADGUARD_URL || 'http://192.168.0.68';
@@ -61,7 +61,8 @@ router.get('/stats', async (req, res) => {
       blockedPercent: stats.num_dns_queries ? ((stats.num_blocked_filtering / stats.num_dns_queries) * 100).toFixed(1) : 0,
       avgProcessingTime: stats.avg_processing_time ? (stats.avg_processing_time * 1000).toFixed(0) : 0,
       topBlockedDomains: (stats.top_blocked_domains || []).slice(0, 5),
-      dnsQueries: (stats.dns_queries || []).slice(-24)
+      dnsQueries: (stats.dns_queries || []).slice(-24),
+      blockedFiltering: (stats.blocked_filtering || []).slice(-24)
     };
 
     cache = { data: result, ts: Date.now() };
@@ -90,6 +91,12 @@ router.post('/toggle', async (req, res) => {
     // If manually re-enabling, clear any pending pause timer setting
     if (enabled) {
       db.prepare('DELETE FROM settings WHERE key = ?').run('adguard_resume_at');
+    } else {
+      // Protection disabled — insert alert
+      try {
+        db.prepare('INSERT INTO alerts (type, source, message) VALUES (?, ?, ?)')
+          .run('warning', 'AdGuard', 'Ad-blocking protection was disabled');
+      } catch (err) { console.error('AdGuard alert insert error:', err.message); }
     }
 
     cache = { data: null, ts: 0 }; // clear cache
@@ -129,6 +136,13 @@ router.post('/pause', async (req, res) => {
       } catch (e) { console.error('AdGuard resume error:', e.message); }
       db.prepare('DELETE FROM settings WHERE key = ?').run('adguard_resume_at');
     }, duration);
+
+    // Protection paused — insert alert
+    try {
+      const mins = Math.round(duration / 60000);
+      db.prepare('INSERT INTO alerts (type, source, message) VALUES (?, ?, ?)')
+        .run('warning', 'AdGuard', `Ad-blocking paused for ${mins} minutes`);
+    } catch (err) { console.error('AdGuard alert insert error:', err.message); }
 
     cache = { data: null, ts: 0 };
     res.json({ ok: true, paused: true, resumeAt });

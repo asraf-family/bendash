@@ -1,7 +1,7 @@
 const express = require('express');
 const { execSync } = require('child_process');
 const fs = require('fs');
-const fetch = require('node-fetch');
+const fetch = globalThis.fetch || require('node-fetch');
 const https = require('https');
 const router = express.Router();
 
