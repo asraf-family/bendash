@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%230a0a0f'/%3E%3Crect x='60' y='60' width='180' height='180' rx='28' fill='%236c5ce7' opacity='0.9'/%3E%3Crect x='272' y='60' width='180' height='80' rx='28' fill='%236c5ce7' opacity='0.6'/%3E%3Crect x='272' y='168' width='180' height='72' rx='28' fill='%236c5ce7' opacity='0.4'/%3E%3Crect x='60' y='272' width='120' height='180' rx='28' fill='%236c5ce7' opacity='0.5'/%3E%3Crect x='208' y='272' width='244' height='180' rx='28' fill='%236c5ce7' opacity='0.7'/%3E%3C/svg%3E">
-  <link rel="manifest" href="/manifest.json">
+  <link rel="manifest" href="/manifest.json" crossorigin="use-credentials">
   <title>BenDash</title>
   <link rel="stylesheet" href="/style.css?v=2026032203">
   <script defer src="/lib/sortable.min.js?v=2026032201"></script>
@@ -3807,6 +3807,32 @@
       <img :src="fullscreenContent.src" class="fullscreen-image" alt="">
     </template>
   </div>
+
+  <!-- Install Banner -->
+  <div id="install-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#1e293b;border-top:1px solid rgba(255,255,255,0.1);padding:12px 16px;z-index:9999;align-items:center;gap:12px;box-shadow:0 -2px 12px rgba(0,0,0,0.3);">
+    <div style="font-size:24px;">📊</div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-weight:700;font-size:0.95rem;color:#f1f5f9;">התקן את BenDash</div>
+      <div style="font-size:0.8rem;color:#94a3b8;">הוסף למסך הבית לחוויה הטובה ביותר</div>
+    </div>
+    <button id="install-btn" style="background:#3b82f6;color:#fff;border:none;padding:8px 20px;border-radius:8px;font-size:0.9rem;font-weight:600;cursor:pointer;">התקן</button>
+    <button id="install-dismiss" style="background:none;border:none;font-size:1.4rem;color:#94a3b8;cursor:pointer;">&times;</button>
+  </div>
+  <script>
+  (function() {
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault(); deferredPrompt = e;
+      if (!window.matchMedia('(display-mode: standalone)').matches) {
+        setTimeout(() => { const b = document.getElementById('install-banner'); if (b) b.style.display = 'flex'; }, 2000);
+      }
+    });
+    document.getElementById('install-btn')?.addEventListener('click', async () => {
+      if (deferredPrompt) { deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; document.getElementById('install-banner').style.display = 'none'; }
+    });
+    document.getElementById('install-dismiss')?.addEventListener('click', () => { document.getElementById('install-banner').style.display = 'none'; });
+  })();
+  </script>
 
   <!-- Service Worker Registration -->
   <script>

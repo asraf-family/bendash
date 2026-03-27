@@ -10,7 +10,18 @@ const app = express();
 const PORT = process.env.PORT || 7575;
 
 // Middleware
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  next();
+});
 app.use(express.json());
+// Ensure sw.js is not cached with no-store
+app.get('/sw.js', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Content-Type', 'application/javascript');
+  res.sendFile(path.join(__dirname, 'public', 'sw.js'));
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 // API Routes
